@@ -1,0 +1,2676 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VIGIL – Urban Waste Command Center</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;600;700;800&display=swap" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #060c14;
+            --bg2: #0a1525;
+            --bg3: #0d1e35;
+            --panel: #0f2040;
+            --panel2: #132a50;
+            --border: #1a3a6a;
+            --border2: #1f4880;
+            --cyan: #00d4ff;
+            --cyan2: #00a8cc;
+            --green: #00ff88;
+            --green2: #00cc6a;
+            --yellow: #ffd700;
+            --orange: #ff8c00;
+            --red: #ff3d5a;
+            --red2: #cc1a33;
+            --purple: #a855f7;
+            --text: #c8ddf5;
+            --text2: #8ab0d8;
+            --text3: #4a7aaa;
+            --glow-c: 0 0 20px rgba(0, 212, 255, 0.4);
+            --glow-g: 0 0 20px rgba(0, 255, 136, 0.4);
+            --glow-r: 0 0 20px rgba(255, 61, 90, 0.4);
+            --font-mono: 'Share Tech Mono', monospace;
+            --font-ui: 'Rajdhani', sans-serif;
+            --font-main: 'Exo 2', sans-serif;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+        }
+
+        #root {
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 2px;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.4
+            }
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0%
+            }
+
+            100% {
+                top: 100%
+            }
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0
+            }
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0)
+            }
+
+            50% {
+                transform: translateY(-4px)
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0)
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        @keyframes glowPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px rgba(0, 212, 255, 0.2)
+            }
+
+            50% {
+                box-shadow: 0 0 30px rgba(0, 212, 255, 0.6)
+            }
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg)
+            }
+
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        @keyframes gridScroll {
+            0% {
+                background-position: 0 0
+            }
+
+            100% {
+                background-position: 40px 40px
+            }
+        }
+
+        .panel {
+            background: linear-gradient(135deg, var(--panel) 0%, var(--bg2) 100%);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(0, 212, 255, 0.03) 0%, transparent 30%);
+        }
+
+        .panel-corner {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-color: var(--cyan);
+            border-style: solid;
+        }
+
+        .panel-corner.tl {
+            top: 0;
+            left: 0;
+            border-width: 2px 0 0 2px;
+        }
+
+        .panel-corner.tr {
+            top: 0;
+            right: 0;
+            border-width: 2px 2px 0 0;
+        }
+
+        .panel-corner.bl {
+            bottom: 0;
+            left: 0;
+            border-width: 0 0 2px 2px;
+        }
+
+        .panel-corner.br {
+            bottom: 0;
+            right: 0;
+            border-width: 0 2px 2px 0;
+        }
+
+        .panel-title {
+            font-family: var(--font-ui);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--cyan);
+            padding: 10px 14px 8px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--cyan);
+            animation: pulse 2s infinite;
+        }
+
+        .stat-num {
+            font-family: var(--font-mono);
+            font-size: 28px;
+            line-height: 1;
+            color: var(--cyan);
+        }
+
+        .stat-label {
+            font-family: var(--font-ui);
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--text3);
+            margin-top: 3px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 2px;
+            font-family: var(--font-ui);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .badge-red {
+            background: rgba(255, 61, 90, 0.15);
+            color: var(--red);
+            border: 1px solid rgba(255, 61, 90, 0.3);
+        }
+
+        .badge-yellow {
+            background: rgba(255, 215, 0, 0.15);
+            color: var(--yellow);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .badge-green {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .badge-cyan {
+            background: rgba(0, 212, 255, 0.15);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .badge-orange {
+            background: rgba(255, 140, 0, 0.15);
+            color: var(--orange);
+            border: 1px solid rgba(255, 140, 0, 0.3);
+        }
+
+        .badge-purple {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--purple);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .bar-track {
+            background: var(--bg);
+            border-radius: 2px;
+            height: 5px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.8s ease;
+        }
+
+        .live-feed-wrap {
+            position: relative;
+            background: #000;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .scanline {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.5), transparent);
+            animation: scan 3s linear infinite;
+            pointer-events: none;
+        }
+
+        .feed-grid {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.05;
+            background-image: repeating-linear-gradient(0deg, #fff 0, #fff 1px, transparent 1px, transparent 40px),
+                repeating-linear-gradient(90deg, #fff 0, #fff 1px, transparent 1px, transparent 40px);
+        }
+
+        .map-container {
+            position: relative;
+            background: var(--bg);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .btn {
+            font-family: var(--font-ui);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 8px 16px;
+            border: 1px solid var(--border2);
+            background: transparent;
+            color: var(--cyan);
+            cursor: pointer;
+            border-radius: 2px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 212, 255, 0.1);
+            box-shadow: var(--glow-c);
+        }
+
+        .btn-danger {
+            color: var(--red);
+            border-color: rgba(255, 61, 90, 0.4);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 61, 90, 0.1);
+            box-shadow: var(--glow-r);
+        }
+
+        .btn-green {
+            color: var(--green);
+            border-color: rgba(0, 255, 136, 0.4);
+        }
+
+        .btn-green:hover {
+            background: rgba(0, 255, 136, 0.1);
+            box-shadow: var(--glow-g);
+        }
+
+        .input-field {
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            color: var(--text);
+            font-family: var(--font-main);
+            font-size: 13px;
+            padding: 8px 12px;
+            border-radius: 2px;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-field:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.2);
+        }
+
+        .input-field::placeholder {
+            color: var(--text3);
+        }
+
+        .tab {
+            font-family: var(--font-ui);
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: var(--text3);
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: var(--cyan);
+            border-color: var(--cyan);
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--text);
+        }
+
+        .alert-item {
+            animation: slideIn 0.3s ease;
+        }
+
+        .row-hover:hover {
+            background: rgba(0, 212, 255, 0.04);
+        }
+
+        .radar-ping {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid var(--red);
+            animation: radar-expand 2s ease-out infinite;
+        }
+
+        @keyframes radar-expand {
+            0% {
+                transform: scale(0.1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        .heatmap-dot {
+            position: absolute;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 3s infinite;
+        }
+
+        /* ── Leaflet map dark theme overrides ── */
+        .leaflet-container {
+            background: #060c14 !important;
+            font-family: var(--font-main);
+        }
+
+        .leaflet-tile {
+            filter: brightness(0.4) saturate(0.6) hue-rotate(180deg);
+        }
+
+        .leaflet-control-zoom a {
+            background: var(--panel) !important;
+            color: var(--cyan) !important;
+            border-color: var(--border) !important;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: var(--panel) !important;
+            border: 1px solid var(--border2) !important;
+            border-radius: 4px !important;
+            color: var(--text) !important;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2) !important;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--panel) !important;
+        }
+
+        .leaflet-popup-content {
+            margin: 10px 14px !important;
+            font-family: var(--font-main);
+            font-size: 12px;
+        }
+
+        .leaflet-bar {
+            border: 1px solid var(--border) !important;
+            background: var(--panel) !important;
+        }
+
+        .vigil-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            border: 2px solid;
+            animation: pulse 3s infinite;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        /* ── LIVE CAM ── */
+        @keyframes cornerPing {
+            0% {
+                opacity: 1;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: 0.4;
+                transform: scale(1.3)
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1)
+            }
+        }
+
+        @keyframes detectionFlash {
+            0% {
+                opacity: 0
+            }
+
+            10% {
+                opacity: 1
+            }
+
+            90% {
+                opacity: 1
+            }
+
+            100% {
+                opacity: 0
+            }
+        }
+
+        @keyframes scanH {
+            0% {
+                top: 0%
+            }
+
+            100% {
+                top: 100%
+            }
+        }
+
+        .cam-wrap {
+            position: relative;
+            background: #000;
+            border-radius: 3px;
+            overflow: hidden;
+            width: 100%;
+            aspect-ratio: 16/9;
+            border: 1px solid var(--border2);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.15);
+        }
+
+        .cam-wrap video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cam-wrap canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .cam-corner {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-color: var(--cyan);
+            border-style: solid;
+            animation: cornerPing 3s infinite;
+            z-index: 10;
+        }
+
+        .cam-corner.tl {
+            top: 6px;
+            left: 6px;
+            border-width: 2px 0 0 2px;
+        }
+
+        .cam-corner.tr {
+            top: 6px;
+            right: 6px;
+            border-width: 2px 2px 0 0;
+        }
+
+        .cam-corner.bl {
+            bottom: 6px;
+            left: 6px;
+            border-width: 0 0 2px 2px;
+        }
+
+        .cam-corner.br {
+            bottom: 6px;
+            right: 6px;
+            border-width: 0 2px 2px 0;
+        }
+
+        .cam-scanline {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            z-index: 9;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.6), transparent);
+            animation: scanH 2s linear infinite;
+            pointer-events: none;
+        }
+
+        .cam-overlay-text {
+            position: absolute;
+            z-index: 10;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+
+        .detection-box {
+            position: absolute;
+            border: 2px solid;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 8;
+            transition: all 0.3s ease;
+        }
+
+        .detection-label {
+            position: absolute;
+            top: -20px;
+            left: -1px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 2px 2px 0 0;
+            white-space: nowrap;
+            border-bottom: none;
+        }
+
+        .cam-stat-row {
+            display: flex;
+            gap: 6px;
+            padding: 6px 8px;
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        .cam-stat {
+            flex: 1;
+            text-align: center;
+            padding: 5px 4px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+        }
+
+        .cam-stat-val {
+            font-family: var(--font-mono);
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .cam-stat-lbl {
+            font-family: var(--font-ui);
+            font-size: 8px;
+            letter-spacing: 1px;
+            color: var(--text3);
+            margin-top: 2px;
+            text-transform: uppercase;
+        }
+
+        .event-log-item {
+            animation: slideIn 0.3s ease;
+        }
+
+        .cam-permission {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #050d1a, #091525);
+            z-index: 20;
+        }
+
+        .pulse-ring {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid var(--cyan);
+            opacity: 0;
+            animation: radar-expand 2s ease-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ─── SIMULATION ENGINE ───────────────────────────────────────────────────────
+
+        const LOCATIONS = [
+            { id: "bus_stop", name: "Bus Stop", lat: 17.440, lng: 78.490, x: 210, y: 190 },
+            { id: "market_street", name: "Market Street", lat: 17.445, lng: 78.495, x: 310, y: 140 },
+            { id: "food_street", name: "Food Street", lat: 17.435, lng: 78.485, x: 140, y: 250 },
+            { id: "public_park", name: "Public Park", lat: 17.448, lng: 78.480, x: 90, y: 120 },
+            { id: "college_entrance", name: "College Entrance", lat: 17.442, lng: 78.500, x: 390, y: 200 },
+            { id: "railway_station", name: "Railway Station", lat: 17.430, lng: 78.495, x: 320, y: 310 },
+            { id: "temple_road", name: "Temple Road", lat: 17.450, lng: 78.487, x: 180, y: 80 },
+        ];
+
+        const TRASH_TYPES = ["plastic_bottle", "food_wrapper", "paper_cup", "paper_waste", "garbage_bag", "food_container", "cigarette_butt", "plastic_bag", "tin_can"];
+        const TRASH_SOURCES = {
+            bus_stop: "Nearby Snack Stalls & Passenger Overflow",
+            market_street: "Street Vendors & Retail Packaging",
+            food_street: "Restaurant Takeaways & Food Carts",
+            public_park: "Recreational Activities & Picnic Waste",
+            college_entrance: "Student Footfall & Canteen Packaging",
+            railway_station: "Platform Food Vendors & Transit Passengers",
+            temple_road: "Devotional Offerings & Flower Waste",
+        };
+
+        const INFRA_RECS = [
+            { location: "Food Street", type: "DUSTBIN", priority: "HIGH", reason: "Frequent food packaging waste near vendor cluster" },
+            { location: "Bus Stop", type: "DUSTBIN", priority: "HIGH", reason: "High passenger throughput – no bins within 20m" },
+            { location: "College Entrance", type: "RECYCLING", priority: "MEDIUM", reason: "High plastic/paper waste from student footfall" },
+            { location: "Railway Station", type: "COMPACTOR", priority: "HIGH", reason: "Peak-hour overflow requires compacting capacity" },
+            { location: "Market Street", type: "DUSTBIN", priority: "MEDIUM", reason: "Vendor packaging accumulates between cycles" },
+            { location: "Public Park", type: "RECYCLING", priority: "LOW", reason: "Recreational waste suitable for sorted collection" },
+        ];
+
+        function rnd(a, b) { return a + Math.random() * (b - a); }
+        function rndInt(a, b) { return Math.floor(rnd(a, b + 1)); }
+        function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+        function hourFactor() {
+            const h = new Date().getHours();
+            const peaks = { 8: 0.7, 9: 0.9, 12: 1.0, 13: 1.0, 17: 0.9, 18: 1.0, 19: 1.0, 20: 0.8 };
+            return peaks[h] || 0.35;
+        }
+
+        const BASE_TRASH = { bus_stop: 65, market_street: 78, food_street: 82, public_park: 40, college_entrance: 55, railway_station: 70, temple_road: 48 };
+        const BASE_CROWD = { bus_stop: 72, market_street: 60, food_street: 68, public_park: 35, college_entrance: 80, railway_station: 75, temple_road: 42 };
+
+        function simLocation(id) {
+            const hf = hourFactor();
+            const noise = rnd(0.85, 1.15);
+            const td = Math.min(100, Math.round((BASE_TRASH[id] || 50) * hf * noise));
+            const cd = Math.min(100, Math.round((BASE_CROWD[id] || 50) * hf * noise));
+            const cl = Math.max(0, 100 - Math.round(td * 0.65 + cd * 0.2 + rndInt(0, 8)));
+            let rec, recDetail;
+            if (td > 60 && cd < 40) { rec = "CLEAN NOW"; recDetail = `Deploy unit immediately – low crowd window`; }
+            else if (cd > 70) { rec = "STANDBY"; recDetail = `High crowd – schedule in ${rndInt(20, 55)} min`; }
+            else if (td > 40) { rec = "MONITOR"; recDetail = `Accumulating – escalate in ${rndInt(10, 25)} min`; }
+            else { rec = "CLEAR"; recDetail = "Within acceptable thresholds"; }
+            return { id, trash: td, crowd: cd, cleanliness: cl, recommendation: rec, recDetail };
+        }
+
+        function simDetections(count = 6) {
+            return Array.from({ length: count }, () => ({
+                id: Math.random().toString(36).slice(2, 8),
+                type: pick(TRASH_TYPES),
+                confidence: +rnd(0.72, 0.98).toFixed(2),
+                x: +rnd(40, 560).toFixed(0),
+                y: +rnd(40, 340).toFixed(0),
+                w: rndInt(30, 90),
+                h: rndInt(20, 60),
+            }));
+        }
+
+        function simForecast() {
+            return LOCATIONS.flatMap(loc => [1, 3, 6].map(h => {
+                const futureH = (new Date().getHours() + h) % 24;
+                const peaks = { 8: 0.7, 9: 0.9, 12: 1.0, 13: 1.0, 17: 0.9, 18: 1.0, 19: 1.0, 20: 0.8 };
+                const hf = peaks[futureH] || 0.35;
+                const tp = Math.min(100, Math.round(rnd(45, 90) * hf));
+                const t = new Date(); t.setHours(t.getHours() + h);
+                return {
+                    location: loc.name, id: loc.id, hours: h,
+                    time: t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    trash: tp,
+                    severity: tp > 70 ? "HIGH" : tp > 45 ? "MEDIUM" : "LOW",
+                };
+            }));
+        }
+
+        function simLitterEvent() {
+            const loc = pick(LOCATIONS);
+            return {
+                id: `EVT-${rndInt(1000, 9999)}`,
+                location: loc.name,
+                type: pick(TRASH_TYPES),
+                ts: new Date().toLocaleTimeString(),
+                confidence: +rnd(0.78, 0.97).toFixed(2),
+                status: Math.random() > 0.3 ? "UNRESOLVED" : "RESOLVED",
+            };
+        }
+
+        function simAlert() {
+            const loc = pick(LOCATIONS);
+            const msgs = [
+                `Trash spike at ${loc.name} – ${rndInt(5, 15)} new objects`,
+                `Crowd surge at ${loc.name} – density ${rndInt(75, 95)}%`,
+                `Littering event at ${loc.name} – ${pick(TRASH_TYPES).replace(/_/g, " ")} dropped`,
+                `Cleaning completed at ${loc.name}`,
+                `Bin overflow alert near ${loc.name}`,
+            ];
+            const sevs = ["INFO", "INFO", "WARNING", "WARNING", "CRITICAL"];
+            const i = rndInt(0, msgs.length - 1);
+            return { id: Math.random().toString(36).slice(2, 8), msg: msgs[i], severity: sevs[i], time: new Date().toLocaleTimeString(), loc: loc.name };
+        }
+
+        // ─── HOOKS ────────────────────────────────────────────────────────────────────
+
+        function useSimulation() {
+            const [locations, setLocations] = useState(() => LOCATIONS.map(l => ({ ...l, ...simLocation(l.id) })));
+            const [detections, setDetections] = useState(() => simDetections(7));
+            const [forecast, setForecast] = useState(() => simForecast());
+            const [litter, setLitter] = useState(() => Array.from({ length: 6 }, simLitterEvent));
+            const [alerts, setAlerts] = useState(() => [simAlert(), simAlert()]);
+            const [activeLocId, setActiveLocId] = useState("market_street");
+            const [tick, setTick] = useState(0);
+
+            useEffect(() => {
+                const id = setInterval(() => {
+                    setTick(t => t + 1);
+                    setLocations(LOCATIONS.map(l => ({ ...l, ...simLocation(l.id) })));
+                    if (Math.random() > 0.5) setDetections(simDetections(rndInt(4, 9)));
+                    if (Math.random() > 0.6) setForecast(simForecast());
+                    if (Math.random() > 0.4) setLitter(p => {
+                        const e = simLitterEvent();
+                        return [e, ...p].slice(0, 20);
+                    });
+                    if (Math.random() > 0.3) setAlerts(p => {
+                        const a = simAlert();
+                        return [a, ...p].slice(0, 30);
+                    });
+                }, 3500);
+                return () => clearInterval(id);
+            }, []);
+
+            const activeData = locations.find(l => l.id === activeLocId) || locations[0];
+
+            return { locations, detections, forecast, litter, alerts, activeLocId, setActiveLocId, activeData, tick };
+        }
+
+        // ── WebSocket + API hook ───────────────────────────────────────────────────────
+        const API = "http://localhost:8000";
+        const WS_URL = "ws://localhost:8000/ws";
+
+        function useBackend(simLocations, setSimLocations, simAlerts, setSimAlerts) {
+            const [wsStatus, setWsStatus] = useState("disconnected"); // disconnected|connecting|connected
+            const [apiOnline, setApiOnline] = useState(false);
+            const [dbReports, setDbReports] = useState([]);
+            const wsRef = useRef(null);
+
+            // Check if API is reachable
+            useEffect(() => {
+                async function probe() {
+                    try {
+                        const r = await fetch(`${API}/`, { signal: AbortSignal.timeout(2000) });
+                        if (r.ok) { setApiOnline(true); fetchReports(); }
+                    } catch (e) { setApiOnline(false); }
+                }
+                probe();
+                const id = setInterval(probe, 10000);
+                return () => clearInterval(id);
+            }, []);
+
+            // WebSocket connection
+            useEffect(() => {
+                function connect() {
+                    setWsStatus("connecting");
+                    try {
+                        const ws = new WebSocket(WS_URL);
+                        wsRef.current = ws;
+
+                        ws.onopen = () => {
+                            setWsStatus("connected");
+                        };
+
+                        ws.onmessage = (e) => {
+                            try {
+                                const msg = JSON.parse(e.data);
+                                handleWsMessage(msg);
+                            } catch (_) { }
+                        };
+
+                        ws.onclose = () => {
+                            setWsStatus("disconnected");
+                            // Reconnect after 3s
+                            setTimeout(connect, 3000);
+                        };
+
+                        ws.onerror = () => {
+                            ws.close();
+                        };
+                    } catch (e) {
+                        setWsStatus("disconnected");
+                        setTimeout(connect, 5000);
+                    }
+                }
+                connect();
+                return () => { if (wsRef.current) wsRef.current.close(); };
+            }, []);
+
+            function handleWsMessage(msg) {
+                if (msg.type === "init" || msg.type === "tick") {
+                    if (msg.updated_location) {
+                        // Update the specific location that changed
+                        setSimLocations(prev => prev.map(l =>
+                            l.id === msg.updated_location.id ? { ...l, ...msg.updated_location } : l
+                        ));
+                    }
+                    if (msg.locations) {
+                        setSimLocations(prev => msg.locations.map(nl => {
+                            const existing = prev.find(l => l.id === nl.id) || {};
+                            return { ...existing, ...nl };
+                        }));
+                    }
+                }
+                if (msg.message || msg.type === "tick") {
+                    const alert = {
+                        id: Math.random().toString(36).slice(2, 8),
+                        msg: msg.message || `Update from backend`,
+                        severity: msg.severity || "INFO",
+                        time: new Date().toLocaleTimeString(),
+                        loc: msg.location || "System",
+                        fromBackend: true,
+                    };
+                    setSimAlerts(prev => [alert, ...prev].slice(0, 40));
+                }
+                if (msg.type === "new_report") {
+                    setDbReports(prev => [{ ...msg, ts: new Date(msg.created_at).toLocaleTimeString() }, ...prev].slice(0, 30));
+                }
+                if (msg.type === "yolo_detection") {
+                    const alert = {
+                        id: Math.random().toString(36).slice(2, 8),
+                        msg: `🤖 YOLO: ${msg.class_name.replace(/_/g, " ")} detected (${Math.round(msg.confidence * 100)}%)`,
+                        severity: "WARNING", time: new Date().toLocaleTimeString(), loc: "YOLO Feed", fromBackend: true,
+                    };
+                    setSimAlerts(prev => [alert, ...prev].slice(0, 40));
+                }
+            }
+
+            async function fetchReports() {
+                try {
+                    const r = await fetch(`${API}/citizen-reports`);
+                    if (r.ok) {
+                        const data = await r.json();
+                        setDbReports((data.reports || []).map(r => ({ ...r, ts: new Date(r.created_at || Date.now()).toLocaleTimeString() })));
+                    }
+                } catch (e) { }
+            }
+
+            async function submitReport(report) {
+                if (!apiOnline) return null;
+                try {
+                    const r = await fetch(`${API}/citizen-reports`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(report)
+                    });
+                    if (r.ok) {
+                        const data = await r.json();
+                        await fetchReports();
+                        return data.report_id;
+                    }
+                } catch (e) { }
+                return null;
+            }
+
+            async function logCleaning(location_id, status) {
+                if (!apiOnline) return;
+                try {
+                    await fetch(`${API}/cleaning`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ location_id, status })
+                    });
+                } catch (e) { }
+            }
+
+            return { wsStatus, apiOnline, dbReports, submitReport, logCleaning, fetchReports };
+        }
+
+        // ── LEAFLET MAP COMPONENT ─────────────────────────────────────────────────────
+        function LeafletMap({ locations, reports, litter, onLocationClick }) {
+            const mapRef = useRef(null);
+            const leafletRef = useRef(null);
+            const markersRef = useRef({});
+            const reportMarkersRef = useRef([]);
+
+            // Colour helpers
+            const trashColor = (v) => v > 70 ? "#ff3d5a" : v > 45 ? "#ffd700" : "#00ff88";
+
+            useEffect(() => {
+                if (leafletRef.current) return; // already initialised
+                // Init map centered on Hyderabad zone
+                const map = L.map(mapRef.current, {
+                    center: [17.440, 78.490],
+                    zoom: 14,
+                    zoomControl: true,
+                    attributionControl: false,
+                });
+
+                // Dark tile layer
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    maxZoom: 19,
+                    opacity: 0.7,
+                }).addTo(map);
+
+                leafletRef.current = map;
+                return () => { map.remove(); leafletRef.current = null; };
+            }, []);
+
+            // Update zone markers whenever location data changes
+            useEffect(() => {
+                const map = leafletRef.current;
+                if (!map) return;
+
+                locations.forEach(loc => {
+                    const color = trashColor(loc.trash);
+                    const size = 28 + Math.round(loc.trash * 0.18);
+
+                    const icon = L.divIcon({
+                        className: "",
+                        html: `<div class="vigil-marker" style="
+          width:${size}px;height:${size}px;
+          background:${color}22;
+          border-color:${color};
+          color:${color};
+          box-shadow:0 0 ${size}px ${color}55;
+        ">${loc.trash}</div>`,
+                        iconSize: [size, size],
+                        iconAnchor: [size / 2, size / 2],
+                    });
+
+                    if (markersRef.current[loc.id]) {
+                        markersRef.current[loc.id].setLatLng([loc.lat, loc.lng]);
+                        markersRef.current[loc.id].setIcon(icon);
+                        markersRef.current[loc.id].getPopup()?.setContent(popupHtml(loc));
+                    } else {
+                        const marker = L.marker([loc.lat, loc.lng], { icon })
+                            .addTo(map)
+                            .bindPopup(popupHtml(loc), { maxWidth: 220 })
+                            .on("click", () => onLocationClick(loc.id));
+                        markersRef.current[loc.id] = marker;
+                    }
+                });
+            }, [locations]);
+
+            // Citizen report pins
+            useEffect(() => {
+                const map = leafletRef.current;
+                if (!map) return;
+                // Clear old
+                reportMarkersRef.current.forEach(m => m.remove());
+                reportMarkersRef.current = [];
+
+                reports.filter(r => r.lat && r.lng).forEach(r => {
+                    const icon = L.divIcon({
+                        className: "",
+                        html: `<div style="width:14px;height:14px;background:#ff8c00;border:2px solid #fff;border-radius:50%;box-shadow:0 0 8px #ff8c0088;"></div>`,
+                        iconSize: [14, 14], iconAnchor: [7, 7],
+                    });
+                    const m = L.marker([r.lat, r.lng], { icon })
+                        .addTo(map)
+                        .bindPopup(`<b style="color:#ff8c00">📍 Citizen Report</b><br/><b>${r.location}</b><br/>${r.description}<br/><span style="color:#4a7aaa;font-size:10px">${r.reporter || "Anonymous"} · ${r.status || "PENDING"}</span>`);
+                    reportMarkersRef.current.push(m);
+                });
+            }, [reports]);
+
+            function popupHtml(loc) {
+                const c = trashColor(loc.trash);
+                return `
+      <div style="font-family:'Exo 2',sans-serif">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#00d4ff">${loc.name}</div>
+        <div style="display:flex;gap:6px;margin-bottom:4px">
+          <span style="background:${c}22;color:${c};border:1px solid ${c}44;padding:1px 6px;border-radius:2px;font-size:10px;font-family:monospace">TRASH ${loc.trash}%</span>
+          <span style="background:#ffd70022;color:#ffd700;border:1px solid #ffd70044;padding:1px 6px;border-radius:2px;font-size:10px;font-family:monospace">CROWD ${loc.crowd}%</span>
+        </div>
+        <div style="font-size:11px;color:#8ab0d8;margin-bottom:2px">Cleanliness: <b style="color:${c}">${loc.cleanliness}/100</b></div>
+        <div style="font-size:10px;background:${c}15;padding:3px 6px;border-radius:2px;color:${c};font-weight:600">${loc.recommendation}: ${loc.recDetail}</div>
+      </div>`;
+            }
+
+            return (
+                <div ref={mapRef} style={{ width: "100%", height: "100%", minHeight: 380, borderRadius: 2 }} />
+            );
+        }
+
+        // ── LIVE MAP TAB ─────────────────────────────────────────────────────────────
+        function LiveMapPanel({ locations, reports, litter, setActiveLocId, wsStatus, apiOnline }) {
+            const wsColor = wsStatus === "connected" ? "var(--green)" : wsStatus === "connecting" ? "var(--yellow)" : "var(--red)";
+            return (
+                <Panel title="LIVE CITY MAP — GPS INTELLIGENCE" dot icon="🗺️" style={{ height: "100%" }}>
+                    <div style={{ padding: "4px 10px 6px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: wsColor, boxShadow: `0 0 6px ${wsColor}`, display: "block", animation: "pulse 2s infinite" }} />
+                            <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: wsColor }}>WS {wsStatus.toUpperCase()}</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: apiOnline ? "var(--green)" : "var(--red)", display: "block" }} />
+                            <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: apiOnline ? "var(--green)" : "var(--red)" }}>API {apiOnline ? "ONLINE" : "OFFLINE"}</span>
+                        </div>
+                        <div style={{ flex: 1 }} />
+                        <div style={{ display: "flex", gap: 6 }}>
+                            {[{ color: "var(--red)", label: "Heavy" }, { color: "var(--yellow)", label: "Moderate" }, { color: "var(--green)", label: "Clean" }, { color: "var(--orange)", label: "Citizen Report" }].map(l => (
+                                <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />
+                                    <span style={{ fontFamily: "var(--font-ui)", fontSize: 8, color: "var(--text3)" }}>{l.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div style={{ height: 430 }}>
+                        <LeafletMap
+                            locations={locations}
+                            reports={reports}
+                            litter={litter}
+                            onLocationClick={setActiveLocId}
+                        />
+                    </div>
+                    <div style={{ padding: "4px 10px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text3)" }}>
+                            {locations.length} ZONES MONITORED · {reports.filter(r => r.lat && r.lng).length} PINNED REPORTS
+                        </span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text3)" }}>
+                            HYDERABAD, TELANGANA · REAL-TIME
+                        </span>
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ─── COMPONENTS ───────────────────────────────────────────────────────────────
+
+        function Panel({ title, dot, icon, children, style, className = "" }) {
+            return (
+                <div className={`panel ${className}`} style={style}>
+                    <div className="panel-corner tl" /><div className="panel-corner tr" />
+                    <div className="panel-corner bl" /><div className="panel-corner br" />
+                    <div className="panel-title">
+                        {dot && <span className="dot" />}
+                        {icon && <span>{icon}</span>}
+                        {title}
+                    </div>
+                    {children}
+                </div>
+            );
+        }
+
+        function MiniBar({ val, color = "var(--cyan)" }) {
+            return (
+                <div className="bar-track" style={{ flex: 1 }}>
+                    <div className="bar-fill" style={{ width: `${val}%`, background: color }} />
+                </div>
+            );
+        }
+
+        function SeverityBadge({ v }) {
+            if (v === "HIGH" || v === "CRITICAL" || v === "CLEAN NOW") return <span className="badge badge-red">{v}</span>;
+            if (v === "MEDIUM" || v === "MONITOR" || v === "STANDBY") return <span className="badge badge-yellow">{v}</span>;
+            if (v === "LOW" || v === "CLEAR") return <span className="badge badge-green">{v}</span>;
+            return <span className="badge badge-cyan">{v}</span>;
+        }
+
+        function CleanlinessColor(score) {
+            if (score >= 70) return "var(--green)";
+            if (score >= 40) return "var(--yellow)";
+            return "var(--red)";
+        }
+
+        // ── HEADER ────────────────────────────────────────────────────────────────────
+        function Header({ alerts, tick, wsStatus, apiOnline }) {
+            const [time, setTime] = useState(new Date().toLocaleTimeString());
+            useEffect(() => { const id = setInterval(() => setTime(new Date().toLocaleTimeString()), 1000); return () => clearInterval(id); }, []);
+            const critical = alerts.filter(a => a.severity === "CRITICAL").length;
+            const wsColor = wsStatus === "connected" ? "var(--green)" : wsStatus === "connecting" ? "var(--yellow)" : "var(--red)";
+
+            return (
+                <header style={{
+                    background: "linear-gradient(90deg,var(--bg) 0%,var(--panel) 50%,var(--bg) 100%)",
+                    borderBottom: "1px solid var(--border)",
+                    padding: "0 20px",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    height: "52px", position: "sticky", top: 0, zIndex: 100,
+                    boxShadow: "0 4px 30px rgba(0,0,0,0.5)"
+                }}>
+                    {/* Logo */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{ position: "relative", width: 36, height: 36 }}>
+                            <svg viewBox="0 0 36 36" width="36" height="36">
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="var(--cyan)" strokeWidth="1.5" strokeDasharray="4 2" style={{ animation: "rotate 20s linear infinite" }} />
+                                <circle cx="18" cy="18" r="8" fill="none" stroke="var(--cyan)" strokeWidth="2" />
+                                <circle cx="18" cy="18" r="3" fill="var(--cyan)" />
+                                <line x1="18" y1="2" x2="18" y2="10" stroke="var(--cyan)" strokeWidth="1.5" />
+                                <line x1="18" y1="26" x2="18" y2="34" stroke="var(--cyan)" strokeWidth="1.5" />
+                                <line x1="2" y1="18" x2="10" y2="18" stroke="var(--cyan)" strokeWidth="1.5" />
+                                <line x1="26" y1="18" x2="34" y2="18" stroke="var(--cyan)" strokeWidth="1.5" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 20, fontWeight: 700, letterSpacing: "4px", color: "var(--cyan)", lineHeight: 1 }}>VIGIL</div>
+                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: "2px", color: "var(--text3)", textTransform: "uppercase" }}>Urban Waste Command Center v4.0</div>
+                        </div>
+                    </div>
+
+                    {/* System status pills */}
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        {[
+                            { label: "VISION ENGINE", color: "var(--green)" },
+                            { label: "COCO-SSD AI", color: "var(--green)" },
+                            { label: `WS ${wsStatus.toUpperCase()}`, color: wsColor },
+                            { label: `API ${apiOnline ? "ONLINE" : "OFFLINE"}`, color: apiOnline ? "var(--green)" : "var(--red)" },
+                            { label: `${critical} CRITICAL`, color: critical > 0 ? "var(--red)" : "var(--text3)" },
+                        ].map(p => (
+                            <div key={p.label} style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                padding: "3px 10px", background: "var(--bg)",
+                                border: `1px solid ${p.color}30`, borderRadius: 2,
+                            }}>
+                                <span style={{
+                                    width: 6, height: 6, borderRadius: "50%", background: p.color,
+                                    boxShadow: `0 0 8px ${p.color}`, animation: "pulse 2s infinite", display: "block"
+                                }} />
+                                <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: "1.5px", color: p.color }}>{p.label}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Clock */}
+                    <div style={{ textAlign: "right" }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, color: "var(--cyan)", letterSpacing: "2px" }}>{time}</div>
+                        <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: "1px", color: "var(--text3)" }}>{new Date().toDateString().toUpperCase()}</div>
+                    </div>
+                </header>
+            );
+        }
+
+        // ── TOP STAT CARDS ─────────────────────────────────────────────────────────────
+        function StatCards({ locations }) {
+            const totalTrash = Math.round(locations.reduce((a, l) => a + l.trash, 0) / locations.length);
+            const totalCrowd = Math.round(locations.reduce((a, l) => a + l.crowd, 0) / locations.length);
+            const avgClean = Math.round(locations.reduce((a, l) => a + l.cleanliness, 0) / locations.length);
+            const criticals = locations.filter(l => l.recommendation === "CLEAN NOW").length;
+
+            const cards = [
+                { label: "AVG TRASH DENSITY", val: `${totalTrash}%`, sub: "across all zones", color: "var(--red)", icon: "🗑️" },
+                { label: "AVG CROWD DENSITY", val: `${totalCrowd}%`, sub: "active monitoring", color: "var(--yellow)", icon: "👥" },
+                { label: "CITY CLEANLINESS", val: `${avgClean}/100`, sub: "composite score", color: "var(--green)", icon: "🌿" },
+                { label: "CRITICAL ZONES", val: criticals, sub: "require immediate action", color: "var(--orange)", icon: "⚠" },
+                { label: "ZONES MONITORED", val: locations.length, sub: "vision feeds active", color: "var(--cyan)", icon: "📡" },
+                { label: "EVENTS TODAY", val: `${rndInt(28, 45)}`, sub: "litter events logged", color: "var(--purple)", icon: "📋" },
+            ];
+
+            return (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: "8px", padding: "8px 16px" }}>
+                    {cards.map(c => (
+                        <div key={c.label} className="panel" style={{ padding: "12px 14px" }}>
+                            <div className="panel-corner tl" /><div className="panel-corner tr" />
+                            <div className="panel-corner bl" /><div className="panel-corner br" />
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <span style={{ fontSize: 16 }}>{c.icon}</span>
+                                <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: "1.5px", color: "var(--text3)", textTransform: "uppercase" }}>{c.label}</span>
+                            </div>
+                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 26, color: c.color, lineHeight: 1 }}>{c.val}</div>
+                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)", marginTop: 3 }}>{c.sub}</div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // ── LIVE DETECTION FEED ────────────────────────────────────────────────────────
+        function LiveFeed({ detections, activeLocId, locations }) {
+            const loc = locations.find(l => l.id === activeLocId) || locations[0];
+            const colors = {
+                "plastic_bottle": "#00d4ff", "food_wrapper": "#ffd700", "paper_cup": "#ff8c00",
+                "paper_waste": "#a855f7", "garbage_bag": "#ff3d5a", "food_container": "#00ff88",
+                "cigarette_butt": "#ff6b35", "plastic_bag": "#00d4ff", "tin_can": "#8888ff"
+            };
+
+            return (
+                <Panel title="LIVE DETECTION FEED" dot icon="📹" style={{ height: "100%" }}>
+                    <div style={{ padding: "8px" }}>
+                        {/* Simulated cam */}
+                        <div className="live-feed-wrap" style={{ height: 240, marginBottom: 8 }}>
+                            <div className="feed-grid" />
+                            <div className="scanline" />
+                            {/* Dark scene bg */}
+                            <svg width="100%" height="100%" viewBox="0 0 600 240" style={{ position: "absolute", inset: 0 }}>
+                                <defs>
+                                    <radialGradient id="sceneGrad" cx="50%" cy="50%" r="60%">
+                                        <stop offset="0%" stopColor="#1a2a1a" />
+                                        <stop offset="100%" stopColor="#050a0a" />
+                                    </radialGradient>
+                                </defs>
+                                <rect width="600" height="240" fill="url(#sceneGrad)" />
+                                {/* Ground */}
+                                <rect x="0" y="180" width="600" height="60" fill="#0a100a" opacity="0.8" />
+                                {/* Buildings */}
+                                <rect x="480" y="60" width="80" height="120" fill="#0d1a0d" stroke="#1a3a1a" strokeWidth="1" />
+                                <rect x="520" y="80" width="8" height="8" fill="#ffd700" opacity="0.6" />
+                                <rect x="540" y="80" width="8" height="8" fill="#ffd700" opacity="0.4" />
+                                {/* Street lamp */}
+                                <line x1="300" y1="40" x2="300" y2="180" stroke="#1a3a1a" strokeWidth="3" />
+                                <ellipse cx="300" cy="42" rx="40" ry="8" fill="rgba(255,255,150,0.1)" />
+                            </svg>
+                            {/* Detection boxes */}
+                            {detections.map(d => (
+                                <div key={d.id} style={{
+                                    position: "absolute",
+                                    left: d.x / 600 * 100 + "%", top: d.y / 400 * 100 + "%",
+                                    width: d.w, height: d.h,
+                                    border: `2px solid ${colors[d.type] || "#fff"}`,
+                                    borderRadius: 2,
+                                    boxShadow: `0 0 8px ${colors[d.type] || "#fff"}60`,
+                                }}>
+                                    <div style={{
+                                        position: "absolute", top: -18, left: -1, whiteSpace: "nowrap",
+                                        fontFamily: "var(--font-mono)", fontSize: 9,
+                                        color: colors[d.type] || "#fff",
+                                        background: "rgba(0,0,0,0.8)", padding: "1px 4px",
+                                    }}>
+                                        {d.type.replace(/_/g, " ")} {Math.round(d.confidence * 100)}%
+                                    </div>
+                                </div>
+                            ))}
+                            {/* Overlays */}
+                            <div style={{ position: "absolute", top: 6, left: 6, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--red)" }}>
+                                ● REC &nbsp;&nbsp; CAM-{String(LOCATIONS.indexOf(locations.find(l => l.id === activeLocId) || locations[0]) + 1).padStart(2, "0")}
+                            </div>
+                            <div style={{ position: "absolute", top: 6, right: 6, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--cyan)" }}>
+                                {loc.name.toUpperCase()}
+                            </div>
+                            <div style={{ position: "absolute", bottom: 6, left: 6, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)" }}>
+                                OBJECTS: {detections.length} &nbsp;|&nbsp; {new Date().toLocaleTimeString()}
+                            </div>
+                        </div>
+
+                        {/* Detection list */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                            {detections.slice(0, 6).map(d => (
+                                <div key={d.id} style={{
+                                    display: "flex", alignItems: "center", gap: 6,
+                                    padding: "4px 8px",
+                                    background: "var(--bg)", borderRadius: 2,
+                                    border: `1px solid ${colors[d.type] || "var(--border)"}30`,
+                                }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: colors[d.type] || "var(--cyan)", flexShrink: 0, boxShadow: `0 0 6px ${colors[d.type] || "var(--cyan)"}` }} />
+                                    <div style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text2)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                                        {d.type.replace(/_/g, " ")}
+                                    </div>
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: colors[d.type] || "var(--cyan)" }}>
+                                        {Math.round(d.confidence * 100)}%
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── CROWD MONITOR ──────────────────────────────────────────────────────────────
+        function CrowdMonitor({ locations, activeLocId }) {
+            const loc = locations.find(l => l.id === activeLocId) || locations[0];
+            const level = loc.crowd > 70 ? "HIGH" : loc.crowd > 40 ? "MEDIUM" : "LOW";
+            const color = level === "HIGH" ? "var(--red)" : level === "MEDIUM" ? "var(--yellow)" : "var(--green)";
+
+            return (
+                <Panel title="CROWD DENSITY MONITOR" dot icon="👥" style={{ height: "100%" }}>
+                    <div style={{ padding: 10 }}>
+                        {/* Big gauge */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "8px 0" }}>
+                            <div style={{ position: "relative", width: 120, height: 120 }}>
+                                <svg viewBox="0 0 120 120" width="120" height="120">
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke="var(--bg)" strokeWidth="10" />
+                                    <circle cx="60" cy="60" r="50" fill="none" stroke={color} strokeWidth="10"
+                                        strokeDasharray={`${loc.crowd * 3.14} 314`}
+                                        strokeLinecap="round"
+                                        transform="rotate(-90 60 60)"
+                                        style={{ transition: "stroke-dasharray 0.8s ease", boxShadow: `0 0 20px ${color}` }}
+                                    />
+                                    <text x="60" y="58" textAnchor="middle" fill={color} fontFamily="var(--font-mono)" fontSize="22" fontWeight="bold">{loc.crowd}</text>
+                                    <text x="60" y="72" textAnchor="middle" fill="var(--text3)" fontFamily="var(--font-ui)" fontSize="9">DENSITY %</text>
+                                </svg>
+                            </div>
+                            <div style={{ marginLeft: 16 }}>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 22, fontWeight: 700, color, letterSpacing: 2 }}>{level}</div>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)", letterSpacing: 1.5, textTransform: "uppercase" }}>CROWD LEVEL</div>
+                                <div style={{ marginTop: 8, fontFamily: "var(--font-main)", fontSize: 11, color: "var(--text2)", lineHeight: 1.5 }}>
+                                    Est. persons: {Math.round(loc.crowd * 0.8)}<br />
+                                    Clean window: {loc.crowd > 70 ? "BLOCKED" : `In ${rndInt(5, 30)}m`}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* All locations mini */}
+                        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+                            {locations.map(l => {
+                                const c = l.crowd > 70 ? "var(--red)" : l.crowd > 40 ? "var(--yellow)" : "var(--green)";
+                                return (
+                                    <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }} className="row-hover">
+                                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)", width: 16 }}>{l.crowd}%</div>
+                                        <MiniBar val={l.crowd} color={c} />
+                                        <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text2)", width: 90, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.name}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── CLEANING DECISIONS ─────────────────────────────────────────────────────────
+        function CleaningDecisions({ locations }) {
+            return (
+                <Panel title="SMART CLEANING OPERATIONS" dot icon="🚛" style={{ height: "100%" }}>
+                    <div style={{ padding: 8, overflow: "auto", maxHeight: 300 }}>
+                        {locations.map(l => {
+                            const tc = l.recommendation === "CLEAN NOW" ? "var(--red)" : l.recommendation === "MONITOR" ? "var(--yellow)" : "var(--green)";
+                            return (
+                                <div key={l.id} style={{
+                                    padding: "8px 10px", marginBottom: 5,
+                                    background: "var(--bg)", borderRadius: 2,
+                                    borderLeft: `3px solid ${tc}`,
+                                }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                                        <span style={{ fontFamily: "var(--font-ui)", fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{l.name}</span>
+                                        <SeverityBadge v={l.recommendation} />
+                                    </div>
+                                    <div style={{ fontFamily: "var(--font-main)", fontSize: 10, color: "var(--text3)", marginBottom: 4 }}>{l.recDetail}</div>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)" }}>TRASH</span>
+                                            <MiniBar val={l.trash} color="var(--red)" />
+                                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--red)" }}>{l.trash}%</span>
+                                        </div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)" }}>CROWD</span>
+                                            <MiniBar val={l.crowd} color="var(--yellow)" />
+                                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--yellow)" }}>{l.crowd}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── HEATMAP ────────────────────────────────────────────────────────────────────
+        function WasteHeatmap({ locations, activeLocId, setActiveLocId }) {
+            const colorScale = (v) => {
+                if (v > 70) return { fill: "rgba(255,61,90,0.7)", stroke: "#ff3d5a", glow: "rgba(255,61,90,0.5)" };
+                if (v > 45) return { fill: "rgba(255,215,0,0.5)", stroke: "#ffd700", glow: "rgba(255,215,0,0.4)" };
+                return { fill: "rgba(0,255,136,0.35)", stroke: "#00ff88", glow: "rgba(0,255,136,0.3)" };
+            };
+
+            return (
+                <Panel title="WASTE HEATMAP" dot icon="🗺️" style={{ height: "100%" }}>
+                    <div style={{ padding: 8 }}>
+                        <div style={{ position: "relative", height: 360, background: "var(--bg)", borderRadius: 2, border: "1px solid var(--border)", overflow: "hidden" }}>
+                            {/* Grid */}
+                            <svg width="100%" height="100%" viewBox="0 0 480 360" style={{ position: "absolute", inset: 0 }}>
+                                <defs>
+                                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(26,58,106,0.4)" strokeWidth="0.5" />
+                                    </pattern>
+                                </defs>
+                                <rect width="480" height="360" fill="url(#grid)" style={{ animation: "gridScroll 4s linear infinite" }} />
+                                {/* Roads */}
+                                <path d="M 0 200 Q 240 180 480 200" stroke="rgba(26,58,106,0.6)" strokeWidth="3" fill="none" />
+                                <path d="M 240 0 Q 260 180 240 360" stroke="rgba(26,58,106,0.6)" strokeWidth="3" fill="none" />
+                                <path d="M 0 120 L 480 140" stroke="rgba(26,58,106,0.3)" strokeWidth="1.5" fill="none" />
+                                {/* Legend */}
+                                <text x="8" y="345" fontFamily="Share Tech Mono" fontSize="9" fill="rgba(74,122,170,0.8)">LAT 17.430–17.450 | LNG 78.480–78.500</text>
+                            </svg>
+                            {/* Location blobs */}
+                            {locations.map(loc => {
+                                const cs = colorScale(loc.trash);
+                                const isActive = loc.id === activeLocId;
+                                const blobSize = 20 + loc.trash * 0.25;
+                                return (
+                                    <div key={loc.id}
+                                        onClick={() => setActiveLocId(loc.id)}
+                                        style={{
+                                            position: "absolute",
+                                            left: loc.x + "px", top: loc.y + "px",
+                                            cursor: "pointer",
+                                            transform: "translate(-50%,-50%)",
+                                            zIndex: isActive ? 10 : 5,
+                                        }}>
+                                        {/* Blob */}
+                                        <div style={{
+                                            position: "absolute",
+                                            width: blobSize * 2, height: blobSize * 2,
+                                            borderRadius: "50%",
+                                            background: cs.fill,
+                                            border: `2px solid ${cs.stroke}`,
+                                            boxShadow: `0 0 ${blobSize}px ${cs.glow}`,
+                                            transform: "translate(-50%,-50%)",
+                                            animation: "pulse 3s infinite",
+                                            transition: "all 0.5s",
+                                        }} />
+                                        {/* Ping ring for active */}
+                                        {isActive && <div className="radar-ping" style={{ width: 60, height: 60, left: -30, top: -30, borderColor: cs.stroke }} />}
+                                        {/* Label */}
+                                        <div style={{
+                                            position: "absolute",
+                                            top: blobSize + 8, left: "50%",
+                                            transform: "translateX(-50%)",
+                                            whiteSpace: "nowrap",
+                                            fontFamily: "var(--font-ui)", fontSize: 9,
+                                            color: isActive ? cs.stroke : "var(--text2)",
+                                            background: "rgba(6,12,20,0.85)",
+                                            padding: "2px 6px", borderRadius: 2,
+                                            border: `1px solid ${cs.stroke}40`,
+                                        }}>
+                                            {loc.name}
+                                            <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: cs.stroke, textAlign: "center" }}>{loc.trash}%</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {/* Legend */}
+                        <div style={{ display: "flex", gap: 12, padding: "6px 4px" }}>
+                            {[{ color: "var(--red)", "label": "Heavy (>70%)" }, { "color": "var(--yellow)", "label": "Moderate (45–70%)" }, { "color": "var(--green)", "label": "Clean (<45%)" }].map(l => (
+                                <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: l.color, boxShadow: `0 0 6px ${l.color}` }} />
+                                    <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)" }}>{l.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── WASTE FORECAST ─────────────────────────────────────────────────────────────
+        function WasteForecast({ forecast }) {
+            const top = forecast.filter(f => f.severity === "HIGH").slice(0, 6);
+            return (
+                <Panel title="WASTE FORECAST ANALYTICS" dot icon="📊" style={{ height: "100%" }}>
+                    <div style={{ padding: 8, overflow: "auto", maxHeight: 320 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6, marginBottom: 8 }}>
+                            {[1, 3, 6].map(h => {
+                                const group = forecast.filter(f => f.hours === h);
+                                const avg = Math.round(group.reduce((a, f) => a + f.trash, 0) / group.length);
+                                return (
+                                    <div key={h} style={{
+                                        background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 2,
+                                        padding: "8px 10px", textAlign: "center"
+                                    }}>
+                                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 20, color: avg > 70 ? "var(--red)" : avg > 45 ? "var(--yellow)" : "var(--green)" }}>{avg}%</div>
+                                        <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)", letterSpacing: 1 }}>+{h}H FORECAST</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {top.map((f, i) => (
+                            <div key={i} style={{
+                                display: "flex", alignItems: "center", gap: 8,
+                                padding: "6px 8px", marginBottom: 3,
+                                background: "rgba(255,61,90,0.05)",
+                                border: "1px solid rgba(255,61,90,0.15)", borderRadius: 2
+                            }}>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--red)", width: 40 }}>{f.time}</span>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--text)" }}>
+                                        {f.location}
+                                    </div>
+                                    <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)" }}>
+                                        Heavy trash accumulation predicted
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--red)" }}>{f.trash}%</div>
+                                    <SeverityBadge v={f.severity} />
+                                </div>
+                            </div>
+                        ))}
+                        {forecast.filter(f => f.severity !== "HIGH").slice(0, 4).map((f, i) => (
+                            <div key={i} style={{
+                                display: "flex", alignItems: "center", gap: 8,
+                                padding: "5px 8px", marginBottom: 3,
+                                background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 2
+                            }}>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text3)", width: 40 }}>{f.time}</span>
+                                <div style={{ flex: 1, fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--text2)" }}>{f.location}</div>
+                                <div style={{ textAlign: "right" }}>
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: f.severity === "MEDIUM" ? "var(--yellow)" : "var(--green)" }}>{f.trash}%</div>
+                                    <SeverityBadge v={f.severity} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── CLEANLINESS SCOREBOARD ─────────────────────────────────────────────────────
+        function CleanlinessScoreboard({ locations }) {
+            const sorted = [...locations].sort((a, b) => b.cleanliness - a.cleanliness);
+            return (
+                <Panel title="CLEANLINESS SCOREBOARD" dot icon="🏆" style={{ height: "100%" }}>
+                    <div style={{ padding: 8 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <div style={{ background: "var(--bg)", borderRadius: 2, border: "1px solid var(--border)", padding: 6 }}>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--green)", marginBottom: 5 }}>▲ TOP 3 CLEANEST</div>
+                                {sorted.slice(0, 3).map((l, i) => (
+                                    <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)", width: 14 }}>#{i + 1}</span>
+                                        <span style={{ flex: 1, fontFamily: "var(--font-ui)", fontSize: 10, color: "var(--text2)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{l.name}</span>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--green)" }}>{l.cleanliness}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ background: "var(--bg)", borderRadius: 2, border: "1px solid var(--border)", padding: 6 }}>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--red)", marginBottom: 5 }}>▼ TOP 3 CRITICAL</div>
+                                {sorted.slice(-3).reverse().map((l, i) => (
+                                    <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)", width: 14 }}>#{i + 1}</span>
+                                        <span style={{ flex: 1, fontFamily: "var(--font-ui)", fontSize: 10, color: "var(--text2)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{l.name}</span>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--red)" }}>{l.cleanliness}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {sorted.map(l => (
+                            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 10, color: "var(--text2)", width: 100, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.name}</div>
+                                <div className="bar-track" style={{ flex: 1 }}>
+                                    <div className="bar-fill" style={{ width: `${l.cleanliness}%`, background: CleanlinessColor(l.cleanliness) }} />
+                                </div>
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: CleanlinessColor(l.cleanliness), width: 32, textAlign: "right" }}>{l.cleanliness}</div>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── LITTER MONITOR ─────────────────────────────────────────────────────────────
+        function LitterMonitor({ litter }) {
+            return (
+                <Panel title="LITTER ACTIVITY MONITOR" dot icon="🚨" style={{ height: "100%" }}>
+                    <div style={{ padding: 8, overflow: "auto", maxHeight: 300 }}>
+                        {litter.slice(0, 12).map(e => (
+                            <div key={e.id} className="alert-item" style={{
+                                display: "flex", alignItems: "center", gap: 8,
+                                padding: "6px 8px", marginBottom: 3,
+                                background: "var(--bg)", borderRadius: 2,
+                                borderLeft: `3px solid ${e.status === "UNRESOLVED" ? "var(--red)" : "var(--green)"}`,
+                            }}>
+                                <div style={{ width: 32, flexShrink: 0 }}>
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text3)" }}>{e.ts}</div>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--text)" }}>{e.location}</div>
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)" }}>{e.type.replace(/_/g, " ")} · {Math.round(e.confidence * 100)}%</div>
+                                </div>
+                                <span className={`badge ${e.status === "UNRESOLVED" ? "badge-red" : "badge-green"}`}>{e.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── INFRASTRUCTURE RECS ────────────────────────────────────────────────────────
+        function InfraRecommendations() {
+            const icons = { DUSTBIN: "🗑️", RECYCLING: "♻️", COMPACTOR: "🔧" };
+            return (
+                <Panel title="INFRASTRUCTURE RECOMMENDATIONS" dot icon="🏗️" style={{ height: "100%" }}>
+                    <div style={{ padding: 8, overflow: "auto", maxHeight: 300 }}>
+                        {INFRA_RECS.map((r, i) => (
+                            <div key={i} style={{
+                                padding: "8px 10px", marginBottom: 5,
+                                background: "var(--bg)", borderRadius: 2,
+                                border: "1px solid var(--border)",
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <span style={{ fontSize: 14 }}>{icons[r.type]}</span>
+                                        <span style={{ fontFamily: "var(--font-ui)", fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{r.location}</span>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                        <span className={`badge badge-${r.type === "DUSTBIN" ? "cyan" : r.type === "RECYCLING" ? "green" : "orange"}`}>{r.type}</span>
+                                        <SeverityBadge v={r.priority} />
+                                    </div>
+                                </div>
+                                <div style={{ fontFamily: "var(--font-main)", fontSize: 10, color: "var(--text3)" }}>{r.reason}</div>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── WASTE SOURCE INTELLIGENCE ──────────────────────────────────────────────────
+        function WasteSourceIntelligence({ locations }) {
+            return (
+                <Panel title="WASTE SOURCE INTELLIGENCE" dot icon="🔍" style={{ height: "100%" }}>
+                    <div style={{ padding: 8, overflow: "auto", maxHeight: 300 }}>
+                        {locations.map(l => (
+                            <div key={l.id} style={{
+                                padding: "8px 10px", marginBottom: 5,
+                                background: "var(--bg)", borderRadius: 2,
+                                border: "1px solid var(--border)",
+                            }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                                    <span style={{ fontFamily: "var(--font-ui)", fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{l.name}</span>
+                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--purple)" }}>{rndInt(78, 96)}% CONF</span>
+                                </div>
+                                <div style={{ fontFamily: "var(--font-main)", fontSize: 10, color: "var(--cyan)", marginBottom: 1 }}>
+                                    📍 {TRASH_SOURCES[l.id]}
+                                </div>
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)" }}>
+                                    Primary waste: {pick(TRASH_TYPES).replace(/_/g, " ")}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── ALERT FEED ─────────────────────────────────────────────────────────────────
+        function AlertFeed({ alerts }) {
+            const sc = { CRITICAL: "var(--red)", WARNING: "var(--yellow)", INFO: "var(--cyan)" };
+            return (
+                <Panel title="SYSTEM ALERTS" dot icon="🔔" style={{ height: "100%" }}>
+                    <div style={{ padding: 8, overflow: "auto", maxHeight: 260 }}>
+                        {alerts.slice(0, 15).map(a => (
+                            <div key={a.id} className="alert-item" style={{
+                                display: "flex", gap: 8, padding: "5px 6px", marginBottom: 3,
+                                background: "var(--bg)", borderRadius: 2,
+                                borderLeft: `2px solid ${sc[a.severity] || "var(--text3)"}`,
+                            }}>
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text3)", width: 40, flexShrink: 0, paddingTop: 1 }}>{a.time}</div>
+                                <div style={{ fontFamily: "var(--font-main)", fontSize: 10, color: "var(--text2)", flex: 1 }}>{a.msg}</div>
+                                <span className={`badge ${a.severity === "CRITICAL" ? "badge-red" : a.severity === "WARNING" ? "badge-yellow" : "badge-cyan"}`} style={{ flexShrink: 0 }}>
+                                    {a.severity}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── CITIZEN REPORTS ────────────────────────────────────────────────────────────
+        function CitizenReports({ apiOnline, dbReports, submitReport }) {
+            const [reports, setReports] = useState([
+                { id: "RPT-4421", location: "Near Bus Stop", description: "Large pile of garbage bags near the shelter", ts: "08:32", status: "PENDING", lat: null, lng: null },
+                { id: "RPT-4420", location: "Market Street", description: "Overflowing bin at corner junction", ts: "07:55", status: "IN PROGRESS", lat: null, lng: null },
+                { id: "RPT-4419", location: "Food Street", description: "Food waste scattered near vendor row", ts: "07:10", status: "RESOLVED", lat: null, lng: null },
+            ]);
+            const [form, setForm] = useState({ location: "", desc: "", name: "", lat: null, lng: null });
+            const [submitted, setSubmitted] = useState(false);
+            const [gpsState, setGpsState] = useState("idle"); // idle|getting|got|error
+
+            // Merge DB reports
+            const allReports = [...dbReports, ...reports].slice(0, 30);
+
+            function getGPS() {
+                if (!navigator.geolocation) { setGpsState("error"); return; }
+                setGpsState("getting");
+                navigator.geolocation.getCurrentPosition(
+                    pos => { setForm(p => ({ ...p, lat: +pos.coords.latitude.toFixed(5), lng: +pos.coords.longitude.toFixed(5) })); setGpsState("got"); },
+                    () => setGpsState("error"),
+                    { timeout: 8000, enableHighAccuracy: true }
+                );
+            }
+
+            async function submit() {
+                if (!form.location || !form.desc) return;
+                const rptId = apiOnline
+                    ? await submitReport({ location: form.location, description: form.desc, reporter: form.name || "Anonymous", lat: form.lat, lng: form.lng })
+                    : null;
+                const r = {
+                    id: rptId || `RPT-${rndInt(1000, 9999)}`,
+                    location: form.location, description: form.desc,
+                    ts: new Date().toLocaleTimeString().slice(0, 5),
+                    status: "PENDING", lat: form.lat, lng: form.lng,
+                };
+                if (!rptId) setReports(p => [r, ...p]);
+                setForm({ location: "", desc: "", name: "", lat: null, lng: null });
+                setGpsState("idle");
+                setSubmitted(true);
+                setTimeout(() => setSubmitted(false), 3000);
+            }
+
+            const gpsColor = gpsState === "got" ? "var(--green)" : gpsState === "getting" ? "var(--yellow)" : gpsState === "error" ? "var(--red)" : "var(--text3)";
+
+            return (
+                <Panel title="CITIZEN REPORTING" dot icon="📱" style={{ height: "100%" }}>
+                    <div style={{ padding: 8 }}>
+                        {/* API status */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6, padding: "3px 8px", background: "var(--bg)", borderRadius: 2, border: "1px solid var(--border)" }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: apiOnline ? "var(--green)" : "var(--text3)", display: "block" }} />
+                            <span style={{ fontFamily: "var(--font-ui)", fontSize: 8, letterSpacing: 1.5, color: apiOnline ? "var(--green)" : "var(--text3)" }}>
+                                {apiOnline ? "REPORTS SAVED TO DATABASE" : "OFFLINE MODE — LOCAL ONLY"}
+                            </span>
+                        </div>
+                        {/* Form */}
+                        <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 2, padding: 8, marginBottom: 8 }}>
+                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--cyan)", marginBottom: 6 }}>SUBMIT TRASH REPORT</div>
+                            <input className="input-field" style={{ marginBottom: 5, fontSize: 11 }} placeholder="Location (e.g. Near Bus Stop)"
+                                value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} />
+                            <input className="input-field" style={{ marginBottom: 5, fontSize: 11 }} placeholder="Your name (optional)"
+                                value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+                            <textarea className="input-field" style={{ resize: "vertical", minHeight: 48, marginBottom: 5, fontSize: 11 }}
+                                placeholder="Describe the issue..."
+                                value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} />
+                            {/* GPS row */}
+                            <div style={{ display: "flex", gap: 5, marginBottom: 5, alignItems: "center" }}>
+                                <button className="btn" onClick={getGPS} style={{ fontSize: 9, padding: "5px 10px", color: gpsColor, borderColor: gpsColor + "50" }}>
+                                    📍 {gpsState === "getting" ? "GETTING GPS…" : gpsState === "got" ? `${form.lat}, ${form.lng}` : "USE MY LOCATION"}
+                                </button>
+                                {form.lat && <span style={{ fontFamily: "var(--font-ui)", fontSize: 8, color: "var(--green)" }}>✓ GPS ATTACHED</span>}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                <button className="btn btn-green" onClick={submit} style={{ flex: 1, justifyContent: "center" }}>
+                                    📤 SUBMIT REPORT
+                                </button>
+                                {submitted && <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--green)", animation: "fadeIn 0.3s ease" }}>✓ {apiOnline ? "SAVED TO DB" : "SUBMITTED"}</span>}
+                            </div>
+                        </div>
+                        {/* List */}
+                        <div style={{ overflow: "auto", maxHeight: 220 }}>
+                            {allReports.map((r, i) => (
+                                <div key={r.id || i} style={{ padding: "6px 8px", marginBottom: 3, background: "var(--bg)", borderRadius: 2, border: "1px solid var(--border)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)" }}>{r.id} · {r.ts || r.created_at?.slice(11, 16)}</span>
+                                        <span className={`badge ${r.status === "RESOLVED" ? "badge-green" : r.status === "IN PROGRESS" ? "badge-yellow" : "badge-orange"}`}>{r.status}</span>
+                                    </div>
+                                    <div style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--text)", marginBottom: 1 }}>
+                                        📍 {r.location} {r.lat && <span style={{ fontSize: 8, color: "var(--green)" }}>· GPS ✓</span>}
+                                    </div>
+                                    <div style={{ fontFamily: "var(--font-main)", fontSize: 10, color: "var(--text3)" }}>{r.description || r.desc}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ── LOCATION SELECTOR ──────────────────────────────────────────────────────────
+        function LocationSelector({ locations, activeLocId, setActiveLocId }) {
+            return (
+                <div style={{
+                    display: "flex", gap: 4, padding: "6px 16px",
+                    borderBottom: "1px solid var(--border)",
+                    overflowX: "auto", background: "var(--bg2)",
+                }}>
+                    <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 2, color: "var(--text3)", alignSelf: "center", marginRight: 4, whiteSpace: "nowrap" }}>ACTIVE ZONE:</span>
+                    {locations.map(l => {
+                        const active = l.id === activeLocId;
+                        const tc = l.trash > 70 ? "var(--red)" : l.trash > 45 ? "var(--yellow)" : "var(--green)";
+                        return (
+                            <button key={l.id} onClick={() => setActiveLocId(l.id)} style={{
+                                fontFamily: "var(--font-ui)", fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase",
+                                padding: "4px 10px", borderRadius: 2, cursor: "pointer", whiteSpace: "nowrap",
+                                background: active ? "var(--panel)" : "transparent",
+                                border: `1px solid ${active ? tc : "var(--border)"}`,
+                                color: active ? tc : "var(--text3)",
+                                boxShadow: active ? `0 0 10px ${tc}40` : "none",
+                                transition: "all 0.2s",
+                            }}>
+                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: tc, display: "inline-block", marginRight: 5, boxShadow: `0 0 4px ${tc}` }} />
+                                {l.name}
+                            </button>
+                        );
+                    })}
+                </div>
+            );
+        }
+
+        // ─── REAL AI WEBCAM DETECTOR (TensorFlow.js + COCO-SSD) ─────────────────────
+
+        // Map COCO-SSD classes → VIGIL waste / person categories
+        const COCO_TO_VIGIL = {
+            // Direct trash-related COCO classes
+            "bottle": { label: "Plastic Bottle", color: "#00d4ff", cat: "TRASH" },
+            "cup": { label: "Paper Cup", color: "#ff8c00", cat: "TRASH" },
+            "wine glass": { label: "Glass Bottle", color: "#aaddff", cat: "TRASH" },
+            "fork": { label: "Cutlery Waste", color: "#ffaa00", cat: "TRASH" },
+            "knife": { label: "Cutlery Waste", color: "#ffaa00", cat: "TRASH" },
+            "spoon": { label: "Cutlery Waste", color: "#ffaa00", cat: "TRASH" },
+            "bowl": { label: "Food Container", color: "#00ff88", cat: "TRASH" },
+            "banana": { label: "Food Waste", color: "#ffd700", cat: "TRASH" },
+            "apple": { label: "Food Waste", color: "#ffd700", cat: "TRASH" },
+            "sandwich": { label: "Food Wrapper", color: "#ffd700", cat: "TRASH" },
+            "orange": { label: "Food Waste", color: "#ffd700", cat: "TRASH" },
+            "broccoli": { label: "Food Waste", color: "#ffd700", cat: "TRASH" },
+            "carrot": { label: "Food Waste", color: "#ffd700", cat: "TRASH" },
+            "hot dog": { label: "Food Wrapper", color: "#ffd700", cat: "TRASH" },
+            "pizza": { label: "Food Container", color: "#ffd700", cat: "TRASH" },
+            "donut": { label: "Food Wrapper", color: "#ffd700", cat: "TRASH" },
+            "cake": { label: "Food Waste", color: "#ffd700", cat: "TRASH" },
+            "book": { label: "Paper Waste", color: "#a855f7", cat: "TRASH" },
+            "scissors": { label: "Sharp Waste", color: "#ff6b35", cat: "TRASH" },
+            "toothbrush": { label: "Plastic Waste", color: "#8888ff", cat: "TRASH" },
+            "cell phone": { label: "E-Waste", color: "#ff3d5a", cat: "TRASH" },
+            "remote": { label: "E-Waste", color: "#ff3d5a", cat: "TRASH" },
+            "keyboard": { label: "E-Waste", color: "#ff3d5a", cat: "TRASH" },
+            "mouse": { label: "E-Waste", color: "#ff3d5a", cat: "TRASH" },
+            "laptop": { label: "E-Waste", color: "#ff3d5a", cat: "TRASH" },
+            "handbag": { label: "Plastic Bag", color: "#a855f7", cat: "TRASH" },
+            "backpack": { label: "Bag/Waste", color: "#a855f7", cat: "TRASH" },
+            "suitcase": { label: "Abandoned Item", color: "#ff8c00", cat: "TRASH" },
+            "umbrella": { label: "Abandoned Item", color: "#ff8c00", cat: "TRASH" },
+            "tie": { label: "Textile Waste", color: "#cc88ff", cat: "TRASH" },
+            "vase": { label: "Ceramic Waste", color: "#aaddff", cat: "TRASH" },
+            "clock": { label: "Abandoned Item", color: "#ff8c00", cat: "TRASH" },
+            // People
+            "person": { label: "Person", color: "#00ff88", cat: "PERSON" },
+            // Vehicles (for context)
+            "car": { label: "Vehicle", color: "#4488ff", cat: "VEHICLE" },
+            "truck": { label: "Truck", color: "#4488ff", cat: "VEHICLE" },
+            "bus": { label: "Bus", color: "#4488ff", cat: "VEHICLE" },
+            "bicycle": { label: "Bicycle", color: "#44ccff", cat: "VEHICLE" },
+            "motorcycle": { label: "Motorcycle", color: "#44ccff", cat: "VEHICLE" },
+        };
+
+        function LiveCamDetector() {
+            const videoRef = useRef(null);
+            const canvasRef = useRef(null);
+            const streamRef = useRef(null);
+            const modelRef = useRef(null);
+            const rafRef = useRef(null);
+
+            // camState: idle | loadingModel | requesting | active | denied | error
+            const [camState, setCamState] = useState("idle");
+            const [modelReady, setModelReady] = useState(false);
+            const [loadProgress, setLoadProgress] = useState(0);
+            const [detBoxes, setDetBoxes] = useState([]);
+            const [eventLog, setEventLog] = useState([]);
+            const [trashCount, setTrashCount] = useState(0);
+            const [personCount, setPersonCount] = useState(0);
+            const [alertCount, setAlertCount] = useState(0);
+            const [showBoxes, setShowBoxes] = useState(true);
+            const [confThresh, setConfThresh] = useState(0.40);
+            const [fps, setFps] = useState(0);
+            const [totalDetected, setTotalDetected] = useState(0);
+            // litter heuristic: track if person was recently near an object
+            const prevPersonBoxes = useRef([]);
+            const fpsRef = useRef({ frames: 0, last: Date.now() });
+            const showRef = useRef(true);
+            const confRef = useRef(0.40);
+            useEffect(() => { showRef.current = showBoxes; }, [showBoxes]);
+            useEffect(() => { confRef.current = confThresh; }, [confThresh]);
+
+            // ── Load TF model on mount ──
+            useEffect(() => {
+                let cancelled = false;
+
+                function waitForGlobals(cb, attempts = 0) {
+                    // Poll until both tf and cocoSsd are available on window
+                    if (typeof window.tf !== "undefined" && typeof window.cocoSsd !== "undefined") {
+                        cb();
+                    } else if (attempts > 40) {
+                        // After ~10s give up
+                        if (!cancelled) setCamState("error");
+                    } else {
+                        setTimeout(() => waitForGlobals(cb, attempts + 1), 250);
+                    }
+                }
+
+                async function loadModel() {
+                    setCamState("loadingModel");
+                    setLoadProgress(10);
+                    try {
+                        // Initialise WebGL backend
+                        await window.tf.setBackend("webgl");
+                        await window.tf.ready();
+                        setLoadProgress(35);
+
+                        // Load COCO-SSD with lite MobileNetV2 base
+                        const model = await window.cocoSsd.load({ base: "lite_mobilenet_v2" });
+                        if (cancelled) return;
+                        setLoadProgress(85);
+                        modelRef.current = model;
+
+                        // Warm-up: create a proper RGB canvas element so the model compiles shaders
+                        const warmupCanvas = document.createElement("canvas");
+                        warmupCanvas.width = 64; warmupCanvas.height = 64;
+                        const wCtx = warmupCanvas.getContext("2d");
+                        wCtx.fillStyle = "#333"; wCtx.fillRect(0, 0, 64, 64);
+                        await model.detect(warmupCanvas);
+
+                        if (cancelled) return;
+                        setLoadProgress(100);
+                        setModelReady(true);
+                        setCamState("idle");
+                    } catch (e) {
+                        console.error("VIGIL model load error:", e);
+                        if (!cancelled) setCamState("error");
+                    }
+                }
+
+                waitForGlobals(loadModel);
+                return () => { cancelled = true; };
+            }, []);
+
+            // ── Draw boxes on canvas ──
+            const drawBoxes = useCallback((predictions, vidW, vidH) => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext("2d");
+                canvas.width = vidW;
+                canvas.height = vidH;
+                ctx.clearRect(0, 0, vidW, vidH);
+                if (!showRef.current) return;
+
+                predictions.forEach(p => {
+                    const info = COCO_TO_VIGIL[p.class];
+                    if (!info) return;
+                    const [bx, by, bw, bh] = p.bbox;
+                    const color = info.color;
+                    const conf = p.score;
+                    const isAlert = info.cat === "ALERT";
+                    const isPerson = info.cat === "PERSON";
+
+                    // Glow
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = isPerson ? 14 : isAlert ? 22 : 10;
+
+                    // Box outline
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = isAlert ? 3 : isPerson ? 2.5 : 2;
+                    ctx.strokeRect(bx, by, bw, bh);
+
+                    // Military corner brackets
+                    const cs = Math.min(14, bw * 0.2, bh * 0.2);
+                    ctx.lineWidth = 3;
+                    [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].forEach(([cx, cy], i) => {
+                        ctx.beginPath();
+                        const dx = i % 2 === 0 ? cs : -cs;
+                        const dy = i < 2 ? cs : -cs;
+                        ctx.moveTo(cx, cy + dy); ctx.lineTo(cx, cy); ctx.lineTo(cx + dx, cy);
+                        ctx.stroke();
+                    });
+                    ctx.shadowBlur = 0;
+
+                    // Label chip
+                    const labelText = `${info.label}  ${Math.round(conf * 100)}%`;
+                    ctx.font = "bold 11px 'Share Tech Mono',monospace";
+                    const tw = ctx.measureText(labelText).width + 12;
+                    const chipH = 18;
+                    // Clip label inside canvas
+                    const chipY = by >= chipH + 2 ? by - chipH : by + bh + 2;
+                    ctx.fillStyle = color + "ee";
+                    ctx.fillRect(bx - 1, chipY, tw, chipH);
+                    ctx.fillStyle = "#000";
+                    ctx.fillText(labelText, bx + 5, chipY + 13);
+
+                    // Confidence bar along bottom edge of box
+                    ctx.fillStyle = "rgba(0,0,0,0.55)";
+                    ctx.fillRect(bx, by + bh, bw, 4);
+                    ctx.fillStyle = color;
+                    ctx.fillRect(bx, by + bh, bw * conf, 4);
+                });
+            }, []);
+
+            // ── Detection loop (requestAnimationFrame) ──
+            useEffect(() => {
+                if (camState !== "active") return;
+                let active = true;
+                let lastDetect = 0;
+                const DETECT_INTERVAL = 200; // ms between inference calls
+
+                async function loop(ts) {
+                    if (!active) return;
+                    rafRef.current = requestAnimationFrame(loop);
+
+                    // FPS counter
+                    fpsRef.current.frames++;
+                    const now = Date.now();
+                    if (now - fpsRef.current.last >= 1000) {
+                        setFps(fpsRef.current.frames);
+                        fpsRef.current = { frames: 0, last: now };
+                    }
+
+                    // Throttle inference
+                    if (now - lastDetect < DETECT_INTERVAL) return;
+                    lastDetect = now;
+
+                    const video = videoRef.current;
+                    const model = modelRef.current;
+                    if (!video || !model || video.readyState < 2 || video.videoWidth === 0) return;
+
+                    let predictions;
+                    try {
+                        predictions = await model.detect(video, 20, confRef.current);
+                    } catch (e) { return; }
+
+                    if (!active) return;
+
+                    const vidW = video.videoWidth;
+                    const vidH = video.videoHeight;
+
+                    // Map to VIGIL boxes (filter to only classes we care about)
+                    const boxes = predictions
+                        .filter(p => COCO_TO_VIGIL[p.class])
+                        .map(p => ({
+                            id: Math.random().toString(36).slice(2, 8),
+                            raw: p.class,
+                            info: COCO_TO_VIGIL[p.class],
+                            bbox: p.bbox,
+                            conf: p.score,
+                        }));
+
+                    setDetBoxes(boxes);
+
+                    const tc = boxes.filter(b => b.info.cat === "TRASH").length;
+                    const pc = boxes.filter(b => b.info.cat === "PERSON").length;
+                    setTrashCount(tc);
+                    setPersonCount(pc);
+                    setAlertCount(0);
+                    setTotalDetected(n => n + tc);
+
+                    // Litter heuristic: if a person bbox overlaps or is close to a trash bbox → litter event
+                    const personBoxes = boxes.filter(b => b.info.cat === "PERSON");
+                    const trashBoxes = boxes.filter(b => b.info.cat === "TRASH");
+                    personBoxes.forEach(pb => {
+                        const [px, py, pw, ph] = pb.bbox;
+                        trashBoxes.forEach(tb => {
+                            const [tx, ty, tw, th] = tb.bbox;
+                            const overlap = !(px > tx + tw || px + pw < tx || py > ty + th || py + ph < ty);
+                            const proximity = Math.abs((px + pw / 2) - (tx + tw / 2)) < 80 && Math.abs((py + ph / 2) - (ty + th / 2)) < 80;
+                            if ((overlap || proximity) && Math.random() < 0.04) {
+                                const evtId = "litter-" + Date.now();
+                                setAlertCount(1);
+                                setEventLog(prev => [{
+                                    id: evtId,
+                                    msg: `Person near ${tb.info.label} – possible litter event`,
+                                    time: new Date().toLocaleTimeString(),
+                                    conf: +(pb.conf * 0.8 + tb.conf * 0.2).toFixed(2),
+                                    type: tb.info.label,
+                                }, ...prev].slice(0, 30));
+                            }
+                        });
+                    });
+
+                    // Draw boxes — pass raw predictions array with our mapped info attached
+                    drawBoxes(
+                        predictions.filter(p => COCO_TO_VIGIL[p.class]).map(p => ({ ...p, info: COCO_TO_VIGIL[p.class] })),
+                        vidW, vidH
+                    );
+                }
+
+                rafRef.current = requestAnimationFrame(loop);
+                return () => {
+                    active = false;
+                    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+                };
+            }, [camState, drawBoxes]);
+
+            // ── Start camera ──
+            async function startCam() {
+                if (!modelReady) { alert("AI model still loading, please wait a moment…"); return; }
+                setCamState("requesting");
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+                        audio: false,
+                    });
+                    streamRef.current = stream;
+                    const video = videoRef.current;
+                    if (video) {
+                        video.srcObject = stream;
+                        await new Promise(res => { video.onloadedmetadata = () => res(); });
+                        await video.play();
+                    }
+                    setCamState("active");
+                } catch (e) {
+                    if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") setCamState("denied");
+                    else { console.error(e); setCamState("error"); }
+                }
+            }
+
+            function stopCam() {
+                if (rafRef.current) cancelAnimationFrame(rafRef.current);
+                if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
+                if (videoRef.current) videoRef.current.srcObject = null;
+                const canvas = canvasRef.current;
+                if (canvas) { const ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+                setDetBoxes([]); setTrashCount(0); setPersonCount(0); setAlertCount(0);
+                setCamState("idle");
+            }
+
+            const crowdLevel = personCount >= 4 ? "HIGH" : personCount >= 2 ? "MEDIUM" : "LOW";
+            const trashLevel = trashCount >= 3 ? "HIGH" : trashCount >= 1 ? "MEDIUM" : "LOW";
+            const crowdColor = crowdLevel === "HIGH" ? "var(--red)" : crowdLevel === "MEDIUM" ? "var(--yellow)" : "var(--green)";
+            const trashColor = trashLevel === "HIGH" ? "var(--red)" : trashLevel === "MEDIUM" ? "var(--yellow)" : "var(--green)";
+
+            const modelStatusColor = camState === "loadingModel" ? "var(--yellow)" : modelReady ? "var(--green)" : "var(--text3)";
+            const modelStatusText = camState === "loadingModel" ? `LOADING ${loadProgress}%` : modelReady ? "MODEL READY" : "INITIALISING";
+
+            return (
+                <Panel title="LIVE CAM — REAL AI DETECTION" dot icon="📷" style={{ height: "100%" }}>
+                    <div style={{ padding: 8 }}>
+
+                        {/* ── Model status bar ── */}
+                        <div style={{
+                            display: "flex", alignItems: "center", gap: 8,
+                            padding: "4px 8px", marginBottom: 6,
+                            background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 2
+                        }}>
+                            <span style={{
+                                width: 7, height: 7, borderRadius: "50%", background: modelStatusColor, flexShrink: 0,
+                                boxShadow: `0 0 8px ${modelStatusColor}`,
+                                animation: camState === "loadingModel" ? "pulse 0.8s infinite" : "none",
+                                display: "block"
+                            }} />
+                            <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: modelStatusColor }}>
+                                COCO-SSD {modelStatusText}
+                            </span>
+                            {camState === "loadingModel" && (
+                                <div style={{ flex: 1, background: "var(--bg3)", borderRadius: 2, height: 4, overflow: "hidden" }}>
+                                    <div style={{ width: `${loadProgress}%`, height: "100%", background: "var(--yellow)", borderRadius: 2, transition: "width 0.5s" }} />
+                                </div>
+                            )}
+                            {modelReady && <span style={{ marginLeft: "auto", fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text3)" }}>TF.js · MobileNetV2</span>}
+                        </div>
+
+                        {/* ── Camera Viewport ── */}
+                        <div className="cam-wrap" style={{ marginBottom: 6 }}>
+                            <video ref={videoRef} muted playsInline
+                                style={{ width: "100%", height: "100%", objectFit: "cover", display: camState === "active" ? "block" : "none" }} />
+                            <canvas ref={canvasRef}
+                                style={{
+                                    position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 8,
+                                    display: camState === "active" ? "block" : "none"
+                                }} />
+
+                            {camState === "active" && <>
+                                <div className="cam-scanline" />
+                                <div className="cam-corner tl" /><div className="cam-corner tr" />
+                                <div className="cam-corner bl" /><div className="cam-corner br" />
+                                <div className="cam-overlay-text" style={{ top: 8, left: 8, color: "var(--red)" }}>● REC &nbsp; AI VISION</div>
+                                <div className="cam-overlay-text" style={{ top: 8, right: 8, color: "var(--cyan)" }}>VIGIL·AI · {fps} FPS</div>
+                                <div className="cam-overlay-text" style={{ bottom: 8, left: 8, color: "var(--green)" }}>
+                                    🗑 {trashCount} &nbsp;|&nbsp; 👤 {personCount} &nbsp;|&nbsp; TOTAL: {totalDetected}
+                                </div>
+                                <div className="cam-overlay-text" style={{ bottom: 8, right: 8, color: crowdColor }}>CROWD: {crowdLevel}</div>
+                                {alertCount > 0 && (
+                                    <div style={{
+                                        position: "absolute", top: "38%", left: "50%", transform: "translate(-50%,-50%)",
+                                        zIndex: 15, fontFamily: "var(--font-ui)", fontSize: 13, fontWeight: 700, letterSpacing: 3,
+                                        color: "var(--red)", background: "rgba(255,61,90,0.18)",
+                                        border: "2px solid var(--red)", padding: "7px 18px", borderRadius: 2,
+                                        animation: "glowPulse 1s infinite", whiteSpace: "nowrap",
+                                    }}>⚠ LITTER EVENT DETECTED</div>
+                                )}
+                            </>}
+
+                            {camState !== "active" && (
+                                <div className="cam-permission">
+                                    <div style={{ position: "relative", width: 70, height: 70, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                        {[0, 0.7, 1.4].map((d, i) => <div key={i} className="pulse-ring" style={{ animationDelay: `${d}s` }} />)}
+                                        <span style={{ fontSize: 28, zIndex: 1 }}>📷</span>
+                                    </div>
+
+                                    {(camState === "idle" || camState === "loadingModel") && (
+                                        <>
+                                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 13, fontWeight: 700, letterSpacing: 2, color: "var(--text)" }}>
+                                                {modelReady ? "WEBCAM FEED INACTIVE" : "LOADING AI MODEL…"}
+                                            </div>
+                                            <div style={{ fontFamily: "var(--font-main)", fontSize: 11, color: "var(--text3)", textAlign: "center", maxWidth: 280, lineHeight: 1.7 }}>
+                                                {modelReady
+                                                    ? "Real TensorFlow.js COCO-SSD model loaded. Point your camera at objects to detect them live."
+                                                    : `Downloading MobileNetV2 model… ${loadProgress}%`}
+                                            </div>
+                                            {modelReady && (
+                                                <button className="btn btn-green" onClick={startCam} style={{ padding: "10px 24px", fontSize: 12 }}>
+                                                    ▶ START REAL AI DETECTION
+                                                </button>
+                                            )}
+                                            {!modelReady && (
+                                                <div style={{ width: 200, background: "var(--bg3)", borderRadius: 3, height: 6, overflow: "hidden" }}>
+                                                    <div style={{ width: `${loadProgress}%`, height: "100%", background: "var(--yellow)", transition: "width 0.5s" }} />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {camState === "requesting" && (
+                                        <div style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--yellow)", letterSpacing: 2, animation: "pulse 1s infinite" }}>
+                                            ◉ REQUESTING CAMERA ACCESS…
+                                        </div>
+                                    )}
+
+                                    {camState === "denied" && (
+                                        <>
+                                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--red)", letterSpacing: 2 }}>⛔ CAMERA ACCESS DENIED</div>
+                                            <div style={{ fontFamily: "var(--font-main)", fontSize: 11, color: "var(--text3)", textAlign: "center", maxWidth: 260, lineHeight: 1.6 }}>
+                                                Allow camera access in your browser address bar, then click Retry.
+                                            </div>
+                                            <button className="btn" onClick={startCam}>↺ RETRY</button>
+                                        </>
+                                    )}
+
+                                    {camState === "error" && (
+                                        <>
+                                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "var(--red)", letterSpacing: 2 }}>⚠ MODEL LOAD FAILED</div>
+                                            <div style={{ fontFamily: "var(--font-main)", fontSize: 11, color: "var(--text3)", textAlign: "center", maxWidth: 300, lineHeight: 1.8 }}>
+                                                Could not load TensorFlow.js.<br />
+                                                <span style={{ color: "var(--yellow)" }}>Check you have internet access</span> — the AI model (~8MB) downloads from CDN on first load.<br />
+                                                Open browser DevTools (F12) → Console for details.
+                                            </div>
+                                            <button className="btn" onClick={() => window.location.reload()}>↺ RELOAD PAGE</button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── Stats ── */}
+                        <div className="cam-stat-row" style={{ borderRadius: 2, marginBottom: 6 }}>
+                            {[
+                                { val: trashCount, color: trashColor, lbl: "TRASH OBJ" },
+                                { val: personCount, color: crowdColor, lbl: "PERSONS" },
+                                { val: alertCount, color: "var(--red)", lbl: "ALERTS" },
+                                { val: fps, color: "var(--cyan)", lbl: "FPS" },
+                            ].map(s => (
+                                <div key={s.lbl} className="cam-stat">
+                                    <div className="cam-stat-val" style={{ color: s.color }}>{s.val}</div>
+                                    <div className="cam-stat-lbl">{s.lbl}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* ── Controls ── */}
+                        <div style={{ display: "flex", gap: 5, marginBottom: 6 }}>
+                            {camState === "active"
+                                ? <button className="btn btn-danger" onClick={stopCam} style={{ flex: 1, justifyContent: "center", fontSize: 10 }}>⏹ STOP</button>
+                                : <button className="btn btn-green" onClick={startCam} disabled={!modelReady}
+                                    style={{ flex: 1, justifyContent: "center", fontSize: 10, opacity: modelReady ? 1 : 0.5, cursor: modelReady ? "pointer" : "not-allowed" }}>
+                                    ▶ START
+                                </button>
+                            }
+                            <button className={`btn ${showBoxes ? "btn-green" : ""}`}
+                                onClick={() => setShowBoxes(v => !v)}
+                                style={{ flex: 1, justifyContent: "center", fontSize: 10 }}>
+                                {showBoxes ? "🔲 BOXES ON" : "⬜ BOXES OFF"}
+                            </button>
+                        </div>
+
+                        {/* ── Confidence threshold ── */}
+                        <div style={{ marginBottom: 6, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 2, padding: "6px 10px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                <span style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--text3)" }}>MIN CONFIDENCE THRESHOLD</span>
+                                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--cyan)" }}>{Math.round(confThresh * 100)}%</span>
+                            </div>
+                            <input type="range" min="0.15" max="0.95" step="0.05" value={confThresh}
+                                onChange={e => setConfThresh(+e.target.value)}
+                                style={{ width: "100%", accentColor: "var(--cyan)", cursor: "pointer" }} />
+                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 8, color: "var(--text3)", marginTop: 3 }}>
+                                Lower = more detections · Higher = only confident ones
+                            </div>
+                        </div>
+
+                        {/* ── Live detection list ── */}
+                        {detBoxes.length > 0 && (
+                            <div style={{ marginBottom: 6 }}>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--text3)", marginBottom: 4 }}>
+                                    ACTIVE DETECTIONS ({detBoxes.length})
+                                </div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, maxHeight: 100, overflow: "auto" }}>
+                                    {detBoxes.map(b => (
+                                        <div key={b.id} style={{
+                                            display: "flex", alignItems: "center", gap: 5,
+                                            padding: "3px 6px", background: "var(--bg)", borderRadius: 2,
+                                            border: `1px solid ${b.info.color}30`,
+                                        }}>
+                                            <div style={{ width: 7, height: 7, borderRadius: "50%", background: b.info.color, flexShrink: 0, boxShadow: `0 0 5px ${b.info.color}` }} />
+                                            <div style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                {b.info.label}
+                                            </div>
+                                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: b.info.color }}>{Math.round(b.conf * 100)}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── What it can detect info ── */}
+                        {camState === "idle" && modelReady && (
+                            <div style={{
+                                background: "rgba(0,212,255,0.04)", border: "1px solid rgba(0,212,255,0.15)",
+                                borderRadius: 2, padding: "6px 10px", marginBottom: 6
+                            }}>
+                                <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--cyan)", marginBottom: 4 }}>
+                                    DETECTABLE OBJECTS (80 COCO classes)
+                                </div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                                    {["Bottles", "Cups", "Bags", "Books", "Food", "E-Waste", "Persons", "Scissors", "Phones"].map(t => (
+                                        <span key={t} className="badge badge-cyan" style={{ fontSize: 8 }}>{t}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Event log ── */}
+                        <div>
+                            <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: 1.5, color: "var(--text3)", marginBottom: 4 }}>
+                                LITTER EVENT LOG
+                            </div>
+                            <div style={{ maxHeight: 110, overflow: "auto" }}>
+                                {eventLog.length === 0 ? (
+                                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)", padding: "6px 0", textAlign: "center" }}>
+                                        — No litter events detected yet —
+                                    </div>
+                                ) : eventLog.map(e => (
+                                    <div key={e.id} className="event-log-item" style={{
+                                        display: "flex", gap: 6, padding: "4px 6px", marginBottom: 2,
+                                        background: "rgba(255,61,90,0.06)", border: "1px solid rgba(255,61,90,0.2)", borderRadius: 2,
+                                    }}>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--text3)", flexShrink: 0, paddingTop: 1 }}>{e.time}</span>
+                                        <span style={{ fontFamily: "var(--font-main)", fontSize: 9, color: "var(--red)", flex: 1 }}>{e.msg}</span>
+                                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--orange)", flexShrink: 0 }}>{Math.round(e.conf * 100)}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                    </div>
+                </Panel>
+            );
+        }
+
+        // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+
+        function App() {
+            const sim = useSimulation();
+            const { locations, setLocations } = (() => {
+                // expose setLocations from sim for WS updates
+                const [locations, setLocations] = useState(() => LOCATIONS.map(l => ({ ...l, ...simLocation(l.id) })));
+                return { locations, setLocations };
+            })();
+
+            // We need mutable state for alerts too
+            const [alerts, setAlerts] = useState(() => [simAlert(), simAlert()]);
+
+            // Use sim for detections/forecast/litter/tick
+            const { detections, forecast, litter, activeLocId, setActiveLocId, tick } = sim;
+
+            // WebSocket + API backend
+            const { wsStatus, apiOnline, dbReports, submitReport, logCleaning } =
+                useBackend(locations, setLocations, alerts, setAlerts);
+
+            // Keep locations + alerts in sync with simulation ticks
+            useEffect(() => {
+                const id = setInterval(() => {
+                    setLocations(LOCATIONS.map(l => ({ ...l, ...simLocation(l.id) })));
+                    if (Math.random() > 0.35) setAlerts(p => [simAlert(), ...p].slice(0, 40));
+                }, 3500);
+                return () => clearInterval(id);
+            }, []);
+
+            const [tab, setTab] = useState("overview");
+
+            const tabs = [
+                { id: "overview", label: "OVERVIEW", icon: "⬡" },
+                { id: "map", label: "LIVE MAP", icon: "🗺️" },
+                { id: "livecam", label: "LIVE CAM", icon: "📷" },
+                { id: "detection", label: "DETECTION", icon: "🎯" },
+                { id: "analytics", label: "ANALYTICS", icon: "📈" },
+                { id: "operations", label: "OPERATIONS", icon: "🚛" },
+                { id: "reports", label: "REPORTS", icon: "📋" },
+            ];
+
+            return (
+                <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+                    <Header alerts={alerts} tick={tick} wsStatus={wsStatus} apiOnline={apiOnline} />
+
+                    {/* Tab bar */}
+                    <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--bg2)", padding: "0 16px", gap: 2 }}>
+                        {tabs.map(t => (
+                            <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+                                {t.icon} {t.label}
+                                {t.id === "livecam" && <span style={{
+                                    marginLeft: 4, fontFamily: "var(--font-ui)", fontSize: 7, letterSpacing: 1,
+                                    background: "var(--red)", color: "#fff", padding: "1px 4px", borderRadius: 2,
+                                    animation: "pulse 1.5s infinite", verticalAlign: "middle"
+                                }}>AI</span>}
+                                {t.id === "map" && <span style={{
+                                    marginLeft: 4, fontFamily: "var(--font-ui)", fontSize: 7, letterSpacing: 1,
+                                    background: "var(--green)", color: "#000", padding: "1px 4px", borderRadius: 2, verticalAlign: "middle"
+                                }}>LIVE</span>}
+                            </button>
+                        ))}
+                        <div style={{ flex: 1 }} />
+                        <div style={{ alignSelf: "center", display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: wsStatus === "connected" ? "var(--green)" : "var(--yellow)", animation: "blink 1s infinite" }}>
+                                ● {wsStatus === "connected" ? "WS LIVE" : "SIM MODE"}
+                            </span>
+                        </div>
+                    </div>
+
+                    <StatCards locations={locations} />
+                    <LocationSelector locations={locations} activeLocId={activeLocId} setActiveLocId={setActiveLocId} />
+
+                    <div style={{ flex: 1, padding: "8px 16px", overflow: "auto" }}>
+
+                        {/* ── OVERVIEW ── */}
+                        {tab === "overview" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 320px", gridTemplateRows: "auto auto", gap: 10 }}>
+                                <div><LiveFeed detections={detections} activeLocId={activeLocId} locations={locations} /></div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <WasteHeatmap locations={locations} activeLocId={activeLocId} setActiveLocId={setActiveLocId} />
+                                    <AlertFeed alerts={alerts} />
+                                </div>
+                                <div style={{ gridRow: "1/3" }}><LiveCamDetector /></div>
+                                <div style={{ gridColumn: "1/3" }}><CleaningDecisions locations={locations} /></div>
+                            </div>
+                        )}
+
+                        {/* ── LIVE MAP ── */}
+                        {tab === "map" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 10 }}>
+                                <LiveMapPanel
+                                    locations={locations}
+                                    reports={dbReports}
+                                    litter={litter}
+                                    setActiveLocId={setActiveLocId}
+                                    wsStatus={wsStatus}
+                                    apiOnline={apiOnline}
+                                />
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <AlertFeed alerts={alerts} />
+                                    <WasteSourceIntelligence locations={locations} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── LIVE CAM ── */}
+                        {tab === "livecam" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 10 }}>
+                                <LiveCamDetector />
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <CrowdMonitor locations={locations} activeLocId={activeLocId} />
+                                    <LitterMonitor litter={litter} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── DETECTION ── */}
+                        {tab === "detection" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                                <LiveFeed detections={detections} activeLocId={activeLocId} locations={locations} />
+                                <LitterMonitor litter={litter} />
+                                <WasteSourceIntelligence locations={locations} />
+                            </div>
+                        )}
+
+                        {/* ── ANALYTICS ── */}
+                        {tab === "analytics" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                                <WasteHeatmap locations={locations} activeLocId={activeLocId} setActiveLocId={setActiveLocId} />
+                                <WasteForecast forecast={forecast} />
+                                <CleanlinessScoreboard locations={locations} />
+                            </div>
+                        )}
+
+                        {/* ── OPERATIONS ── */}
+                        {tab === "operations" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                <CleaningDecisions locations={locations} />
+                                <CrowdMonitor locations={locations} activeLocId={activeLocId} />
+                                <InfraRecommendations />
+                                <AlertFeed alerts={alerts} />
+                            </div>
+                        )}
+
+                        {/* ── REPORTS ── */}
+                        {tab === "reports" && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                                <CitizenReports apiOnline={apiOnline} dbReports={dbReports} submitReport={submitReport} />
+                                <LitterMonitor litter={litter} />
+                                <CleanlinessScoreboard locations={locations} />
+                            </div>
+                        )}
+
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{
+                        borderTop: "1px solid var(--border)", padding: "6px 16px",
+                        display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg2)"
+                    }}>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)" }}>
+                            VIGIL v4.0 · SQLite · WebSockets · Leaflet Maps · COCO-SSD AI · YOLO Bridge
+                        </div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--text3)" }}>
+                            {locations.length} ZONES · {detections.length} DETECTIONS · TICK #{tick}
+                        </div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: wsStatus === "connected" ? "var(--green)" : "var(--yellow)" }}>
+                            {wsStatus === "connected" ? "● BACKEND CONNECTED" : "● SIMULATION MODE"}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+</body>
+
+</html>

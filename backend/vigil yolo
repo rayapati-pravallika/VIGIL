@@ -1,0 +1,196 @@
+"""
+VIGIL YOLO Detection Server  v4.0
+Runs YOLOv8 on your webcam/video and posts detections to vigil_backend.
+
+Install:
+    pip install ultralytics opencv-python requests
+
+Run:
+    python vigil_yolo.py                    # webcam (default)
+    python vigil_yolo.py --source 0         # webcam index 0
+    python vigil_yolo.py --source video.mp4 # video file
+    python vigil_yolo.py --source rtsp://...# IP camera stream
+    python vigil_yolo.py --model yolov8n.pt # nano (fastest)
+    python vigil_yolo.py --model yolov8s.pt # small (balanced)
+    python vigil_yolo.py --model yolov8m.pt # medium (most accurate)
+    python vigil_yolo.py --show             # show live OpenCV window
+"""
+
+import argparse
+import time
+import requests
+import cv2
+from datetime import datetime
+
+# ── COCO class → VIGIL waste category mapping ──────────────────────────────────
+# COCO class IDs: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/coco.yaml
+VIGIL_WASTE_MAP = {
+    # class_id : (vigil_label, color_BGR)
+    0:  ("person",          (0, 255, 136)),   # green
+    39: ("plastic_bottle",  (255, 212, 0)),    # cyan
+    41: ("cup",             (0, 140, 255)),    # orange
+    42: ("fork",            (0, 170, 255)),    # amber
+    43: ("knife",           (0, 170, 255)),
+    44: ("spoon",           (0, 170, 255)),
+    45: ("bowl",            (136, 255, 0)),    # lime
+    46: ("banana",          (0, 215, 255)),    # gold
+    47: ("apple",           (0, 215, 255)),
+    48: ("sandwich",        (0, 215, 255)),
+    49: ("orange",          (0, 165, 255)),
+    50: ("broccoli",        (0, 215, 255)),
+    51: ("carrot",          (0, 165, 255)),
+    52: ("hot_dog",         (0, 215, 255)),
+    53: ("pizza",           (0, 215, 255)),
+    54: ("donut",           (0, 215, 255)),
+    55: ("cake",            (0, 215, 255)),
+    67: ("cell_phone",      (90, 61, 255)),    # e-waste red
+    73: ("book",            (147, 20, 255)),   # purple
+    76: ("scissors",        (35, 107, 255)),   # orange-red
+    77: ("teddy_bear",      (147, 20, 255)),
+    84: ("toothbrush",      (136, 136, 255)),  # periwinkle
+    24: ("backpack",        (147, 20, 255)),   # purple bag
+    26: ("handbag",         (147, 20, 255)),
+    28: ("suitcase",        (0, 140, 255)),    # abandoned item
+}
+
+TRASH_CLASSES = {k for k,v in VIGIL_WASTE_MAP.items() if v[0] != "person"}
+
+# ── VIGIL backend URL ──────────────────────────────────────────────────────────
+API_BASE  = "http://localhost:8000"
+YOLO_ENDPOINT = f"{API_BASE}/yolo/detect"
+
+def parse_args():
+    p = argparse.ArgumentParser(description="VIGIL YOLO Detection Server")
+    p.add_argument("--source",  default="0",          help="Camera index, video file, or RTSP URL")
+    p.add_argument("--model",   default="yolov8n.pt", help="YOLO model file (yolov8n/s/m/l/x.pt)")
+    p.add_argument("--conf",    type=float, default=0.45, help="Confidence threshold")
+    p.add_argument("--show",    action="store_true",   help="Show live OpenCV window")
+    p.add_argument("--fps",     type=int,   default=5,  help="Max detection FPS (default 5)")
+    p.add_argument("--no-post", action="store_true",   help="Don't POST to backend (dry run)")
+    return p.parse_args()
+
+def post_detection(det: dict, dry_run: bool):
+    if dry_run:
+        print(f"[DRY RUN] {det['class_name']} {det['confidence']:.2f} bbox={det['x1']:.0f},{det['y1']:.0f}")
+        return
+    try:
+        r = requests.post(YOLO_ENDPOINT, json=det, timeout=1)
+        if r.status_code != 200:
+            print(f"[WARN] Backend returned {r.status_code}")
+    except requests.exceptions.ConnectionError:
+        print("[WARN] Backend not reachable — is vigil_backend.py running?")
+
+def draw_box(frame, x1, y1, x2, y2, label, conf, color):
+    """Draw military-style corner bracket box."""
+    x1,y1,x2,y2 = int(x1),int(y1),int(x2),int(y2)
+    cs = min(20, int((x2-x1)*0.15), int((y2-y1)*0.15))
+
+    # Corner brackets
+    thick = 2
+    for cx,cy,dx,dy in [(x1,y1,cs,cs),(x2,y1,-cs,cs),(x1,y2,cs,-cs),(x2,y2,-cs,-cs)]:
+        cv2.line(frame,(cx,cy),(cx+dx,cy),color,thick)
+        cv2.line(frame,(cx,cy),(cx,cy+dy),color,thick)
+
+    # Label chip
+    text   = f"{label} {conf:.0%}"
+    (tw,th),_ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    ly = y1-6 if y1>20 else y2+th+6
+    cv2.rectangle(frame,(x1,ly-th-4),(x1+tw+6,ly+2),color,-1)
+    cv2.putText(frame,text,(x1+3,ly),cv2.FONT_HERSHEY_SIMPLEX,0.45,(0,0,0),1,cv2.LINE_AA)
+
+    # Confidence bar
+    bar_w = int((x2-x1)*conf)
+    cv2.rectangle(frame,(x1,y2),(x2,y2+4),(30,30,30),-1)
+    cv2.rectangle(frame,(x1,y2),(x1+bar_w,y2+4),color,-1)
+
+def main():
+    args = parse_args()
+
+    # Import ultralytics here so the rest of the file is importable without it
+    try:
+        from ultralytics import YOLO
+    except ImportError:
+        print("ERROR: ultralytics not installed.\nRun: pip install ultralytics")
+        return
+
+    print(f"[VIGIL YOLO] Loading model: {args.model}")
+    model  = YOLO(args.model)
+    source = int(args.source) if args.source.isdigit() else args.source
+
+    print(f"[VIGIL YOLO] Opening source: {source}")
+    cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        print(f"ERROR: Cannot open source '{source}'")
+        return
+
+    frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"[VIGIL YOLO] Stream: {frame_w}x{frame_h}")
+    print(f"[VIGIL YOLO] Posting to: {YOLO_ENDPOINT}")
+    print(f"[VIGIL YOLO] Press Q to quit\n")
+
+    frame_interval = 1.0 / args.fps
+    last_detect    = 0
+    total_detections = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("[VIGIL YOLO] Stream ended.")
+            break
+
+        now = time.time()
+        if now - last_detect < frame_interval:
+            if args.show:
+                cv2.imshow("VIGIL YOLO", frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            continue
+
+        last_detect = now
+
+        # Run inference
+        results = model(frame, conf=args.conf, verbose=False)[0]
+
+        # Overlay HUD
+        cv2.rectangle(frame,(0,0),(frame_w,28),(0,0,0),-1)
+        ts  = datetime.now().strftime("%H:%M:%S")
+        hud = f"VIGIL-YOLO | {ts} | Detections: {total_detections}"
+        cv2.putText(frame,hud,(8,18),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,212,255),1,cv2.LINE_AA)
+
+        for box in results.boxes:
+            cls_id = int(box.cls[0])
+            if cls_id not in VIGIL_WASTE_MAP:
+                continue
+
+            conf        = float(box.conf[0])
+            vigil_label, color = VIGIL_WASTE_MAP[cls_id]
+            x1,y1,x2,y2 = box.xyxy[0].tolist()
+
+            # Draw on frame
+            if args.show:
+                draw_box(frame, x1,y1,x2,y2, vigil_label.replace("_"," "), conf, color)
+
+            # Post to backend
+            post_detection({
+                "class_name": vigil_label,
+                "confidence": round(conf, 3),
+                "x1":round(x1,1),"y1":round(y1,1),
+                "x2":round(x2,1),"y2":round(y2,1),
+                "frame_w":frame_w, "frame_h":frame_h,
+            }, dry_run=args.no_post)
+
+            total_detections += 1
+
+        if args.show:
+            cv2.imshow("VIGIL YOLO", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    cap.release()
+    if args.show:
+        cv2.destroyAllWindows()
+    print(f"[VIGIL YOLO] Done. Total detections posted: {total_detections}")
+
+if __name__ == "__main__":
+    main()
